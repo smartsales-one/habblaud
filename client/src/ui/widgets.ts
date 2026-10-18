@@ -4,7 +4,7 @@ import type { AccountInfo, Activity, AgentInfo, AgentStatus, Provider } from '..
 import { h, setAttr, setHidden, setStyleVar, setText, setTitle, setVariant } from './dom';
 import { wordmarkSvg } from './icons';
 import { shellDoneKind, shellLine, shellStage, statusLabel, type ShellWait } from './model';
-import { wordmarkRows, wordmarkScale } from './pixel-font';
+import { TEXT_WORDMARK_MAX_W, wordmarkRows, wordmarkScale, wordmarkTier } from '../art/pixel-font';
 import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 import { accountChipLabel, accountProvider, fallbackShort, showsProviderTag } from './provider';
 import { tr } from '../../../shared/i18n';
@@ -131,14 +131,21 @@ export function updateShellActivityLine(el: HTMLElement, wait: ShellWait, now: n
   );
 }
 
-/** Tamanho do logotipo: `scale` px de tela por pixel da fonte, menor (inteiro) se o nome não couber em `maxPx`. */
+/**
+ * Tamanho do logotipo: `scale` px de tela por pixel da fonte, menor (inteiro) se o nome não couber em `maxPx` de
+ * largura ou `maxH` de altura.
+ */
 export interface WordmarkSize {
   scale: number;
   maxPx: number;
+  maxH: number;
 }
 
-/** Barra do topo: 3x (o "Habblaud" fica com 135 px), até 300 px de largura. */
-const TOPBAR_WORDMARK: WordmarkSize = { scale: 3, maxPx: 300 };
+/**
+ * Barra do topo (64 px): 3x (o "Habblaud" fica com 135×24 px), até 300 px de largura e 30 de altura (com descendente,
+ * 10 linhas a 3x), para sobrarem os 4 px de espaço e os 18 da linha de status embaixo.
+ */
+const TOPBAR_WORDMARK: WordmarkSize = { scale: 3, maxPx: 300, maxH: 30 };
 
 /** Nome do escritório como logotipo em pixels (o texto fica para leitores de tela). */
 export function wordmark(cls = 'ui-brand__name', name = DEFAULT_OFFICE_NAME, size: WordmarkSize = TOPBAR_WORDMARK): HTMLElement {
@@ -149,16 +156,23 @@ export function wordmark(cls = 'ui-brand__name', name = DEFAULT_OFFICE_NAME, siz
 
 /**
  * Redesenha o logotipo com `name` (nada a fazer se é o mesmo). Um caractere que a fonte bitmap não tem (nem sem o
- * acento) faz o nome aparecer como texto, na fonte pixelada da interface.
+ * acento) faz o nome aparecer como texto, na fonte pixelada da interface (até 300 px). As classes `is-wide` e
+ * `is-xwide` (wordmarkTier) fazem o CSS esconder o nome mais cedo na barra quando ele é mais largo que o "Habblaud".
  */
 export function setWordmark(el: HTMLElement, name: string, size: WordmarkSize = TOPBAR_WORDMARK): void {
   if (el.dataset.name === name) return;
   el.dataset.name = name;
   const rows = wordmarkRows(name);
+  let width = TEXT_WORDMARK_MAX_W;
   if (!rows) {
     el.replaceChildren(h('span', { class: 'ui-wordmark-text', text: name }));
-    return;
+  } else {
+    const scale = wordmarkScale(rows[0].length, size.scale, size.maxPx, rows.length, size.maxH);
+    width = rows[0].length * scale;
+    el.innerHTML = wordmarkSvg(rows, scale);
+    el.append(h('span', { class: 'ui-sr', text: name }));
   }
-  el.innerHTML = wordmarkSvg(rows, wordmarkScale(rows[0].length, size.scale, size.maxPx));
-  el.append(h('span', { class: 'ui-sr', text: name }));
+  const tier = wordmarkTier(width);
+  el.classList.toggle('is-wide', tier !== 'normal');
+  el.classList.toggle('is-xwide', tier === 'xwide');
 }

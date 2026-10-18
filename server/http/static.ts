@@ -5,10 +5,13 @@
 //   nunca mudam de conteúdo, então podem ficar em cache por 1 ano (immutable);
 // - todo o resto (index.html e client/public: /assets/brand, /assets/art, manifest.json...) tem nome
 //   fixo e pode mudar a cada build: `no-cache` + ETag/Last-Modified, e o navegador revalida (304).
-import { createReadStream, statSync, type Stats } from 'node:fs';
+import { createReadStream, readFileSync, statSync, type Stats } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join, resolve, sep } from 'node:path';
+import { hash32 } from '../../shared/hash';
 import { tr } from '../../shared/i18n';
+import { DEFAULT_OFFICE_NAME } from '../../shared/office-name';
+import { injectOfficeName } from './office-html';
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -70,12 +73,28 @@ export function isNotModified(req: IncomingMessage, etag: string, mtimeMs: numbe
   return false;
 }
 
-export function createStaticHandler(distDir: string): (req: IncomingMessage, res: ServerResponse, pathname: string) => void {
+export interface StaticOptions {
+  /** Nome do escritório posto no index.html (http/office-html.ts); ausente ou padrão = o arquivo como está. */
+  officeName?: string;
+}
+
+export function createStaticHandler(distDir: string, opts: StaticOptions = {}): (req: IncomingMessage, res: ServerResponse, pathname: string) => void {
   const root = resolve(distDir);
   const index = join(root, 'index.html');
+  const officeName = opts.officeName ?? DEFAULT_OFFICE_NAME;
+  /** O index.html com o nome do escritório, refeito quando o arquivo muda (novo build). */
+  let injected: { mtimeMs: number; size: number; body: Buffer } | null = null;
+  const indexBody = (st: Stats): Buffer => {
+    if (!injected || injected.mtimeMs !== st.mtimeMs || injected.size !== st.size) {
+      injected = { mtimeMs: st.mtimeMs, size: st.size, body: Buffer.from(injectOfficeName(readFileSync(index, 'utf8'), officeName), 'utf8') };
+    }
+    return injected.body;
+  };
 
   const send = (req: IncomingMessage, res: ServerResponse, file: string, st: Stats, cache: string) => {
-    const etag = etagOf(st);
+    // index.html com outro nome: o corpo muda, e o ETag leva o nome (trocar o nome invalida a cópia do navegador)
+    const custom = file === index && officeName !== DEFAULT_OFFICE_NAME;
+    const etag = custom ? etagOf(st).replace(/"$/, `-${hash32(officeName).toString(16)}"`) : etagOf(st);
     const headers: Record<string, string | number> = {
       'Cache-Control': cache,
       ETag: etag,
@@ -89,12 +108,22 @@ export function createStaticHandler(distDir: string): (req: IncomingMessage, res
       res.writeHead(304, headers);
       return void res.end();
     }
+    let body: Buffer | undefined;
+    if (custom) {
+      try {
+        body = indexBody(st);
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        return void res.end(tr('erro interno'));
+      }
+    }
     res.writeHead(200, {
       ...headers,
       'Content-Type': MIME[extname(file).toLowerCase()] ?? 'application/octet-stream',
-      'Content-Length': st.size,
+      'Content-Length': body ? body.length : st.size,
     });
     if (req.method === 'HEAD') return void res.end();
+    if (body) return void res.end(body);
     createReadStream(file)
       .on('error', () => res.destroy())
       .pipe(res);

@@ -1,5 +1,50 @@
 import { describe, expect, it } from 'vitest';
-import { canDraw, glyphOf, textWidth, wordmarkRows, wordmarkScale, wordmarkSplit } from './pixel-font';
+import PIXELART_PY from '../../../scripts/assets/pixelart.py?raw';
+import { ACCENTED, ACCENTS, canDraw, GLYPHS, glyphOf, TEXT_WORDMARK_MAX_W, textWidth, wordmarkRows, wordmarkScale, wordmarkSplit, wordmarkTier } from './pixel-font';
+
+/** Linhas de um bloco `NOME: ... = {` ... `}` do pixelart.py. */
+function pythonBlock(src: string[], name: string): string[] {
+  const start = src.findIndex((l) => l.startsWith(`${name}:`));
+  expect(start, `${name} no pixelart.py`).toBeGreaterThanOrEqual(0);
+  const end = src.findIndex((l, i) => i > start && l === '}');
+  return src.slice(start + 1, end);
+}
+
+const strings = (s: string) => [...s.matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+
+describe('fonte bitmap igual à do scripts/assets/pixelart.py', () => {
+  const src: string[] = PIXELART_PY.split(/\r?\n/);
+
+  it('glifos', () => {
+    const py: Record<string, string[]> = {};
+    for (const line of pythonBlock(src, '_GLYPHS')) {
+      const m = /^\s*(["'])(.+?)\1:\s*\[(.*)\],?\s*$/.exec(line);
+      expect(m, `linha do _GLYPHS que o teste não entende: ${line}`).not.toBeNull();
+      py[m![2]] = strings(m![3]);
+    }
+    expect(Object.keys(py).length).toBeGreaterThan(60);
+    expect(GLYPHS).toEqual(py);
+  });
+
+  it('acentos e o ç', () => {
+    const accents: Record<string, string[]> = {};
+    for (const line of pythonBlock(src, '_ACCENTS')) {
+      const m = /^\s*"(\w+)":\s*\((.*)\),?\s*$/.exec(line);
+      expect(m, `linha do _ACCENTS que o teste não entende: ${line}`).not.toBeNull();
+      accents[m![1]] = strings(m![2]);
+    }
+    expect(ACCENTS).toEqual(accents);
+    const accented: Record<string, string[]> = {};
+    for (const line of pythonBlock(src, '_ACCENTED')) {
+      for (const m of line.matchAll(/"(.)":\s*\("(.)",\s*"(\w+)"\)/g)) accented[m[1]] = [m[2], m[3]];
+    }
+    expect(Object.keys(accented).length).toBeGreaterThan(5);
+    expect(ACCENTED).toEqual(accented);
+    const cedilla = src.map((l) => /c\[7\], c\[8\] = "(.+?)", "(.+?)"/.exec(l)).find(Boolean);
+    expect(cedilla).toBeTruthy();
+    expect(glyphOf('ç')!.slice(7)).toEqual([cedilla![1], cedilla![2]]);
+  });
+});
 
 /** O logotipo "Habblaud" desenhado à mão antes do nome configurável (a placa da marca, scripts/assets/pixelart.py). */
 const HABBLAUD_ROWS = [
@@ -76,5 +121,19 @@ describe('fonte bitmap da marca', () => {
     expect(wordmarkScale(240, 3, 300)).toBe(1);
     expect(wordmarkScale(500, 3, 300)).toBe(1);
     expect(wordmarkScale(45, 5, 400)).toBe(5);
+    // altura: na barra (até 30 px) o "SmartSales Corp." (10 linhas) fica em 3x; 11 linhas cairiam para 2x
+    expect(wordmarkScale(84, 3, 300, 10, 30)).toBe(3);
+    expect(wordmarkScale(84, 3, 300, 11, 30)).toBe(2);
+    expect(wordmarkScale(84, 5, 400, 10, 50)).toBe(4);
+  });
+
+  it('faixas de largura que adiantam o corte do nome na barra', () => {
+    expect(wordmarkTier(135)).toBe('normal');
+    expect(wordmarkTier(150)).toBe('normal');
+    expect(wordmarkTier(252)).toBe('wide');
+    expect(wordmarkTier(255)).toBe('wide');
+    expect(wordmarkTier(256)).toBe('xwide');
+    expect(wordmarkTier(TEXT_WORDMARK_MAX_W)).toBe('xwide');
+    expect(84 * wordmarkScale(84, 3, 300, 10, 30)).toBe(252);
   });
 });

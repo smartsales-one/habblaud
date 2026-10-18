@@ -3929,6 +3929,45 @@
   }
 }
 
+/* Nome do escritório mais largo que o "Habblaud" (135 px; art/pixel-font.ts: wordmarkTier): os mesmos cortes que
+   escondem o nome (1500, 1140 e 1040 px) sobem pela diferença: 120 px com is-wide (até 255 px, "SmartSales Corp." tem
+   252) e 165 px com is-xwide (até 300 px). */
+@media (max-width: 1620px) {
+  .ui-topbar:has(.ui-usage-card:nth-child(4)) .ui-brand__name.is-wide {
+    display: none;
+  }
+}
+
+@media (max-width: 1665px) {
+  .ui-topbar:has(.ui-usage-card:nth-child(4)) .ui-brand__name.is-xwide {
+    display: none;
+  }
+}
+
+@media (max-width: 1260px) {
+  .ui-topbar:has(.ui-usage-card:nth-child(3)) .ui-brand__name.is-wide {
+    display: none;
+  }
+}
+
+@media (max-width: 1305px) {
+  .ui-topbar:has(.ui-usage-card:nth-child(3)) .ui-brand__name.is-xwide {
+    display: none;
+  }
+}
+
+@media (max-width: 1160px) {
+  .ui-brand__name.is-wide {
+    display: none;
+  }
+}
+
+@media (max-width: 1205px) {
+  .ui-brand__name.is-xwide {
+    display: none;
+  }
+}
+
 /* Os cartões de uso não cabem na linha da barra (muitas contas ou janela estreita; ui/usage.ts decide): vão para uma
    segunda linha, como já acontece no celular, e rolam na horizontal se ainda assim não couberem. */
 @media (min-width: 601px) {

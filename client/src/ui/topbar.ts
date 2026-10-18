@@ -12,7 +12,7 @@ import { UsageCards } from './usage';
 import { VersionChip } from './version';
 import { setWordmark, wordmark } from './widgets';
 import { tr } from '../../../shared/i18n';
-import { officeNameOf } from '../../../shared/office-name';
+import { officeNameFor } from './office-name';
 
 interface CounterRefs {
   el: HTMLElement;
@@ -180,8 +180,8 @@ export class TopBar implements UiComponent {
     const { store } = this.ctx;
     const snap = store.snapshot;
 
-    // Nome do escritório: o do servidor ao vivo, mesmo durante o timelapse.
-    setWordmark(this.brandName, officeNameOf(store.liveSnapshot?.meta.officeName));
+    // Nome do escritório: o do servidor ao vivo, mesmo durante o timelapse (antes do snapshot, o do index.html).
+    setWordmark(this.brandName, officeNameFor(store.liveSnapshot));
 
     // Conexão.
     const conn = store.connection;

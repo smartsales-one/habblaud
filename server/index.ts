@@ -12,6 +12,7 @@ import { createRequestGuard, isLoopbackHost } from './http/guard';
 import { createRemoteGate, isRemoteRequest, loadSecret, RemoteSessions, startRemoteListener, type RemoteListener } from './http/remote';
 import { Hub } from './http/sse';
 import { createStaticHandler } from './http/static';
+import { injectOfficeName } from './http/office-html';
 import { TerminalStreams } from './http/terminal';
 import { createTimelineHandler } from './http/timeline';
 import { TIMELINE_DIR, TimelineRecorder } from './history/timeline';
@@ -400,11 +401,13 @@ if (config.dev) {
     configFile: join(config.rootDir, 'vite.config.ts'),
     server: { middlewareMode: true, ws: { server } },
     appType: 'spa',
+    // o nome do escritório no index.html também no modo dev (http/office-html.ts)
+    plugins: [{ name: 'habblaud-office-name', transformIndexHtml: (html: string) => injectOfficeName(html, config.officeName) }],
   });
   closeVite = () => vite.close();
   fallback = (req, res) => vite.middlewares(req, res);
 } else {
-  const serveStatic = createStaticHandler(join(config.rootDir, 'dist', 'client'));
+  const serveStatic = createStaticHandler(join(config.rootDir, 'dist', 'client'), { officeName: config.officeName });
   fallback = (req, res, url) => serveStatic(req, res, url.pathname);
 }
 

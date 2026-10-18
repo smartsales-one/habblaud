@@ -19,7 +19,9 @@ import { daylightModeOf, parseHourParam } from './daylight';
 import { RoomFxRenderer } from './github-fx';
 import { Lighting } from './lighting';
 import { Particles } from './particles';
+import { PLATE_PALETTE, plateFit, plateRows, signagePlan } from './plate';
 import { carSprite, propSprite, shadowSprite } from './props';
+import { DEFAULT_OFFICE_NAME } from '../../../../shared/office-name';
 import { countBadge, fallbackIcon } from './shell-sprites';
 import { decorateElevator, drawSeasonalLights, drawSeasonalWindow, seasonalCostume, seasonalFurniture } from './seasonal';
 import { buildAreaVis, furnitureSprites, opaqueBounds, paintShell, toWallVis, WALL_MARGIN, wallItemOrigin, wallSprites, type AreaVis, type FurnVis, type WallVis } from './scene';
@@ -116,12 +118,18 @@ export class Renderer {
   private clearColor = '#7fae62';
   private grass: CanvasPattern | null = null;
   private theme: SeasonalTheme = 'none';
+  /** A chapa da recepção desenhada com o nome do escritório (render/plate.ts), em cache pelo nome. */
+  private plate: { name: string; canvas: HTMLCanvasElement } | null = null;
+  /** signagePlan do nome e do asset atuais (recalculado só quando um dos dois muda). */
+  private plan: { name: string; hasPng: boolean; plan: 'png' | 'plate' | 'text' } | null = null;
 
   constructor(
     readonly canvas: HTMLCanvasElement,
     private readonly art: ArtModule,
     private readonly sim: Sim,
     private readonly camera: Camera,
+    /** Nome do escritório na placa da recepção (render/plate.ts); padrão "Habblaud". */
+    private readonly officeName: () => string = () => DEFAULT_OFFICE_NAME,
   ) {
     this.ctx = canvas.getContext('2d', { alpha: false })!;
     this.exterior = layoutExterior(sim.building.cols);
@@ -671,21 +679,51 @@ export class Renderer {
     ctx.drawImage(s.base.canvas, o.x, o.y + rise);
   }
 
+  /**
+   * Placa da recepção (render/plate.ts): a pronta com o nome padrão, a chapa desenhada com outro nome, ou null (a placa
+   * comum, com o texto do overlay). A chapa fica em cache pelo nome.
+   */
+  private receptionPlate(vis: AreaVis): { img: CanvasImageSource; w: number; h: number; smooth: boolean } | null {
+    if (vis.room || vis.id !== 'core:recepcao') return null;
+    const name = this.officeName();
+    const hasPng = !!this.assets?.signage;
+    if (this.plan?.name !== name || this.plan.hasPng !== hasPng) this.plan = { name, hasPng, plan: signagePlan(name, hasPng) };
+    const { plan } = this.plan;
+    if (plan === 'png') {
+      const a = this.assets!.signage!;
+      return { img: a.img, w: a.w, h: a.h, smooth: true };
+    }
+    if (plan !== 'plate') return null;
+    if (this.plate?.name !== name) {
+      const rows = plateRows(name)!;
+      const c = document.createElement('canvas');
+      c.width = rows[0].length;
+      c.height = rows.length;
+      const pctx = c.getContext('2d')!;
+      rows.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) {
+          const color = PLATE_PALETTE[row[x]];
+          if (!color) continue;
+          pctx.fillStyle = color;
+          pctx.fillRect(x, y, 1, 1);
+        }
+      });
+      this.plate = { name, canvas: c };
+    }
+    // a chapa desenhada fica sem suavização mesmo reduzida: os pixels ficam desiguais, mas nítidos
+    return { img: this.plate.canvas, w: this.plate.canvas.width, h: this.plate.canvas.height, smooth: false };
+  }
+
   /** Placa com o nome (o texto nítido é escrito pelo overlay em espaço de tela). */
   private drawSign(vis: AreaVis, w: WallVis, slide: number): void {
     const { ctx } = this;
-    if (!vis.room && this.assets?.signage && vis.id === 'core:recepcao') {
-      const a = this.assets.signage;
-      const maxW = 5 * TILE;
-      const maxH = 24;
+    const plate = this.receptionPlate(vis);
+    if (plate) {
       // escala inteira (pixels nítidos) sempre que couber
-      const fit = Math.min(maxW / a.w, maxH / a.h);
-      const k = fit >= 1 ? Math.floor(fit) : fit;
-      const dw = Math.round(a.w * k);
-      const dh = Math.round(a.h * k);
+      const { k, dw, dh } = plateFit(plate.w, plate.h);
       ctx.save();
-      ctx.imageSmoothingEnabled = k < 1;
-      ctx.drawImage(a.img, Math.round(w.cx - dw / 2), Math.round(w.baseY - 8 - dh) + slide, dw, dh);
+      ctx.imageSmoothingEnabled = plate.smooth && k < 1;
+      ctx.drawImage(plate.img, Math.round(w.cx - dw / 2), Math.round(w.baseY - 8 - dh) + slide, dw, dh);
       ctx.restore();
       return;
     }
@@ -698,7 +736,7 @@ export class Renderer {
   /** Retângulo (px de mundo) da área de texto da placa de uma área, se houver. */
   signRect(vis: AreaVis): { x: number; y: number; w: number; h: number } | null {
     if (!vis.sign) return null;
-    if (!vis.room && this.assets?.signage && vis.id === 'core:recepcao') return null;
+    if (this.receptionPlate(vis)) return null;
     const s = wallSprites(this.art, 'sign', vis.sign.variant, 0, vis.sign.seed);
     if (!s) return null;
     const o = wallItemOrigin(vis.sign, s.base);

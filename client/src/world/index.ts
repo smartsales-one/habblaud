@@ -12,7 +12,7 @@ import { RECEPTION_ID } from './layout/core';
 import { inRect } from './layout/geometry';
 import { attachInput, type Hit } from './input';
 import type { AgentInfo } from '../../../shared/types';
-import { officeNameOf } from '../../../shared/office-name';
+import { DEFAULT_OFFICE_NAME, officeNameOf } from '../../../shared/office-name';
 import { rebaseSnapshot } from './playback';
 import { Overlay } from './render/overlay';
 import { Renderer } from './render/renderer';
@@ -55,12 +55,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let options: WorldOptions = { ...DEFAULT_WORLD_OPTIONS };
   const visitMode = !!o.visit;
   const camera = new Camera();
-  // Placa da recepção: o nome do escritório ao vivo, também no timelapse (os instantes reproduzidos não o trazem). Na
-  // visita a um prédio do mundo o snapshot não tem o nome: fica o padrão.
-  const officeName = () => officeNameOf(store.liveSnapshot?.meta.officeName);
+  // Placa da recepção: o nome do escritório ao vivo, também no timelapse (os instantes reproduzidos não o trazem). Antes
+  // do primeiro snapshot o carregamento cobre a tela. Na visita a um prédio do mundo o nome não vem (nem o deste
+  // escritório vale lá): fica o padrão. (A cena Visita não importa nada de ui/ além do DOM: ver visit.test.ts.)
+  const officeName = () => (visitMode ? DEFAULT_OFFICE_NAME : officeNameOf(store.liveSnapshot?.meta.officeName));
   // Simulação e desenho são recriados quando o timelapse entra, pula ou sai (rebuild).
   let sim = new Sim(art, () => options, undefined, { visit: visitMode });
-  let renderer = new Renderer(canvas, art, sim, camera);
+  let renderer = new Renderer(canvas, art, sim, camera, officeName);
   let overlay = new Overlay(renderer.ctx, sim, renderer, camera, officeName);
   let assets: WorldAssets | null = null;
   /** Timelapse ligado: relógio próprio do mundo (`worldNow`), acelerado pelo fator de animação. */
@@ -376,7 +377,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     // As carteiras ao vivo gravam a cada 5 s: não perde o que mudou desde a última vez (no replay, não grava nada).
     sim.social.wallets.save(Date.now());
     sim = new Sim(art, () => options, playback ? null : undefined, { visit: visitMode });
-    renderer = new Renderer(canvas, art, sim, camera);
+    renderer = new Renderer(canvas, art, sim, camera, officeName);
     if (assets) renderer.setAssets(assets);
     if (playback) {
       const p = playback;

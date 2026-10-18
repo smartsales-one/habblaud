@@ -5,16 +5,16 @@ import { FALLBACK_MARK } from './icons';
 import { emptyOfficeHint } from './provider';
 import { wordmark, type WordmarkSize } from './widgets';
 import { tr } from '../../../shared/i18n';
-import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
+import { officeNameFor } from './office-name';
 
 /** Depois de quanto tempo sem conexão o aviso aparece. */
 const DISCONNECTED_BANNER_MS = 8_000;
 
 /**
- * Logotipo do carregamento: 5x (o "Habblaud" fica com 225 px). O nome do escritório só chega com o snapshot, que é
- * quando o carregamento some: aqui fica sempre o do produto.
+ * Logotipo do carregamento: 5x (o "Habblaud" fica com 225×40 px), até 400×50 px. O nome vem do index.html (o servidor põe o
+ * do escritório numa meta: ui/office-name.ts), porque o carregamento some no primeiro snapshot.
  */
-const SPLASH_WORDMARK: WordmarkSize = { scale: 5, maxPx: 400 };
+const SPLASH_WORDMARK: WordmarkSize = { scale: 5, maxPx: 400, maxH: 50 };
 
 function brandMark(size: number): HTMLElement {
   const mark = h('span', { class: 'ui-brand__mark' });
@@ -38,7 +38,7 @@ export class Splash implements UiComponent {
     this.el = h(
       'div',
       { class: 'ui-splash', role: 'status', attrs: { 'aria-live': 'polite' } },
-      h('div', { class: 'ui-splash__inner' }, brandMark(64), wordmark('ui-splash__name', DEFAULT_OFFICE_NAME, SPLASH_WORDMARK), this.text, h('span', { class: 'ui-splash__bar' })),
+      h('div', { class: 'ui-splash__inner' }, brandMark(64), wordmark('ui-splash__name', officeNameFor(null), SPLASH_WORDMARK), this.text, h('span', { class: 'ui-splash__bar' })),
     );
   }
 

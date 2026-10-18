@@ -331,7 +331,7 @@ export const FALLBACK_MARK = pixelIcon(
 );
 
 /**
- * Logotipo com o nome do escritório em pixels (mapa de ui/pixel-font.ts: wordmarkRows), com a mesma fonte bitmap da
+ * Logotipo com o nome do escritório em pixels (mapa de art/pixel-font.ts: wordmarkRows), com a mesma fonte bitmap da
  * placa da marca (assets/brand/signage.png, gerada por scripts/assets/pixelart.py): a Pixelify Sans não fica nítida
  * nesse tamanho. c = creme, t = âmbar, s = sombra de 1 px. `scale` = px de tela por pixel (inteiro, para ficar nítido).
  */

@@ -13,10 +13,12 @@ do meio (0.**3**.0).
 ### Adicionado
 
 - **Nome do escritório configurável (`HABBLAUD_OFFICE_NAME`).** O nome aparece no logotipo em pixels da barra do topo
-  (com a mesma fonte bitmap da placa da marca), no título da aba, nas notificações do navegador, no texto para leitor
-  de tela da marca e na placa da recepção. Padrão "Habblaud"; até 40 caracteres e sem quebra de linha (fora disso, o
-  log avisa e fica o padrão). Um caractere que a fonte bitmap não tem faz o nome aparecer como texto. O Habblaud World
-  continua com esse nome.
+  e na placa da recepção (as duas com a fonte bitmap da placa da marca e nas mesmas cores; com o nome padrão, a placa
+  continua a de sempre), no título da aba e no nome do app na Tela de Início desde o carregamento, nas notificações do
+  navegador e no texto para leitor de tela da marca. Padrão "Habblaud"; até 40 caracteres e sem quebra de linha (fora
+  disso, o log avisa e fica o padrão). Um caractere que a fonte bitmap não tem faz o nome aparecer como texto; nome
+  longo demais para a chapa vai escrito na placa comum. Na barra, um nome mais largo some mais cedo nas janelas
+  estreitas. O Habblaud World continua com esse nome.
 
 ## [1.0.3] - 2026-10-16
 

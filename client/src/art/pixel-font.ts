@@ -1,14 +1,14 @@
 // A fonte bitmap da marca (a mesma de scripts/assets/pixelart.py, que gera a placa assets/brand/signage.png e os
 // textos do og-image): proporcional, maiúsculas 5x7, com acentos. Aqui ela desenha o logotipo da barra do topo a partir
-// do nome do escritório (HABBLAUD_OFFICE_NAME). Mudou um glifo lá, mude aqui também (o teste do logotipo "Habblaud"
-// confere os dois desenhos). Puro: nada de DOM.
+// do nome do escritório (HABBLAUD_OFFICE_NAME) e a placa da recepção (world/render/plate.ts). Mudou um glifo lá, mude
+// aqui também: pixel-font.test.ts compara as tabelas com as do pixelart.py. Puro: nada de DOM.
 import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 
 /**
  * Célula de 9 linhas: maiúsculas e ascendentes nas linhas 0-6, altura-x de 5 linhas (2-6), descendentes nas linhas
  * 7-8 e acentos das minúsculas nas linhas 0-1. Glifos com 7 linhas não têm descendente. Espaço entre letras: 1 px.
  */
-const GLYPHS: Readonly<Record<string, readonly string[]>> = {
+export const GLYPHS: Readonly<Record<string, readonly string[]>> = {
   A: ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
   B: ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
   C: ['.###.', '#...#', '#....', '#....', '#....', '#...#', '.###.'],
@@ -84,13 +84,13 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** Acentos das minúsculas (linhas 0-1); nos glifos estreitos (i), as 3 colunas do meio. */
-const ACCENTS = {
+export const ACCENTS = {
   acute: ['...#.', '..#..'],
   grave: ['.#...', '..#..'],
   circ: ['..#..', '.#.#.'],
   tilde: ['.##.#', '#..#.'],
 } as const;
-const ACCENTED: Readonly<Record<string, readonly [string, keyof typeof ACCENTS]>> = {
+export const ACCENTED: Readonly<Record<string, readonly [string, keyof typeof ACCENTS]>> = {
   á: ['a', 'acute'],
   à: ['a', 'grave'],
   â: ['a', 'circ'],
@@ -196,10 +196,20 @@ export function wordmarkRows(name: string, split = wordmarkSplit(name)): string[
 }
 
 /**
- * Escala inteira do logotipo: a maior até `preferred` em que `width` pixels da fonte cabem em `maxPx` px de tela
- * (inteira para ficar nítido); no mínimo 1.
+ * Larguras (px de tela) do logotipo na barra que mudam quando o nome some (styles.css, bloco "responsivo"): até 150 o
+ * de sempre (o "Habblaud" tem 135); até 255 `wide` (os cortes sobem 120 px: "SmartSales Corp." tem 252); acima, `xwide`
+ * (sobem 165 px: o máximo é 300). O nome em texto (fonte que não desenha) conta como TEXT_WORDMARK_MAX_W.
  */
-export function wordmarkScale(width: number, preferred: number, maxPx: number): number {
-  for (let s = preferred; s > 1; s--) if (width * s <= maxPx) return s;
+export const TEXT_WORDMARK_MAX_W = 300;
+export function wordmarkTier(widthPx: number): 'normal' | 'wide' | 'xwide' {
+  return widthPx <= 150 ? 'normal' : widthPx <= 255 ? 'wide' : 'xwide';
+}
+
+/**
+ * Escala inteira do logotipo: a maior até `preferred` em que `width` pixels da fonte cabem em `maxPx` px de tela (e
+ * `height` em `maxH`, quando dados; inteira para ficar nítido); no mínimo 1.
+ */
+export function wordmarkScale(width: number, preferred: number, maxPx: number, height = 0, maxH = Infinity): number {
+  for (let s = preferred; s > 1; s--) if (width * s <= maxPx && height * s <= maxH) return s;
   return 1;
 }

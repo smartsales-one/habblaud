@@ -5,6 +5,12 @@
 
 export const DEFAULT_OFFICE_NAME = 'Habblaud';
 
+/**
+ * `<meta name>` com o nome do escritório no index.html servido (server/http/office-html.ts): a página usa antes do
+ * primeiro snapshot (client/src/ui/office-name.ts).
+ */
+export const OFFICE_NAME_META = 'habblaud-office-name';
+
 /** Tamanho máximo, em caracteres (pontos de código), depois de tirar os espaços das pontas. */
 export const OFFICE_NAME_MAX = 40;
 
