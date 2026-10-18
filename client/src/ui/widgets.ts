@@ -2,8 +2,10 @@
 // de progresso.
 import type { AccountInfo, Activity, AgentInfo, AgentStatus, Provider } from '../../../shared/types';
 import { h, setAttr, setHidden, setStyleVar, setText, setTitle, setVariant } from './dom';
-import { WORDMARK } from './icons';
+import { wordmarkSvg } from './icons';
 import { shellDoneKind, shellLine, shellStage, statusLabel, type ShellWait } from './model';
+import { wordmarkRows, wordmarkScale } from './pixel-font';
+import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 import { accountChipLabel, accountProvider, fallbackShort, showsProviderTag } from './provider';
 import { tr } from '../../../shared/i18n';
 
@@ -129,10 +131,34 @@ export function updateShellActivityLine(el: HTMLElement, wait: ShellWait, now: n
   );
 }
 
-/** Nome do produto como logotipo em pixels (o texto fica para leitores de tela). */
-export function wordmark(cls = 'ui-brand__name'): HTMLElement {
+/** Tamanho do logotipo: `scale` px de tela por pixel da fonte, menor (inteiro) se o nome não couber em `maxPx`. */
+export interface WordmarkSize {
+  scale: number;
+  maxPx: number;
+}
+
+/** Barra do topo: 3x (o "Habblaud" fica com 135 px), até 300 px de largura. */
+const TOPBAR_WORDMARK: WordmarkSize = { scale: 3, maxPx: 300 };
+
+/** Nome do escritório como logotipo em pixels (o texto fica para leitores de tela). */
+export function wordmark(cls = 'ui-brand__name', name = DEFAULT_OFFICE_NAME, size: WordmarkSize = TOPBAR_WORDMARK): HTMLElement {
   const el = h('span', { class: cls });
-  el.innerHTML = WORDMARK;
-  el.append(h('span', { class: 'ui-sr', text: 'Habblaud' }));
+  setWordmark(el, name, size);
   return el;
+}
+
+/**
+ * Redesenha o logotipo com `name` (nada a fazer se é o mesmo). Um caractere que a fonte bitmap não tem (nem sem o
+ * acento) faz o nome aparecer como texto, na fonte pixelada da interface.
+ */
+export function setWordmark(el: HTMLElement, name: string, size: WordmarkSize = TOPBAR_WORDMARK): void {
+  if (el.dataset.name === name) return;
+  el.dataset.name = name;
+  const rows = wordmarkRows(name);
+  if (!rows) {
+    el.replaceChildren(h('span', { class: 'ui-wordmark-text', text: name }));
+    return;
+  }
+  el.innerHTML = wordmarkSvg(rows, wordmarkScale(rows[0].length, size.scale, size.maxPx));
+  el.append(h('span', { class: 'ui-sr', text: name }));
 }

@@ -471,7 +471,7 @@ export const FR: Readonly<Record<string, string>> = {
   "Expandir na tela toda": "Agrandir en plein écran",
 
   // client/src/ui/notify.ts
-  "Habblaud — precisa de você": "Habblaud — on a besoin de vous",
+  "{0} — precisa de você": "{0} — on a besoin de vous",
 
   // client/src/ui/overlays.ts
   "Conectando ao escritório…": "Connexion au bureau…",
@@ -1486,6 +1486,9 @@ export const FR: Readonly<Record<string, string>> = {
   "a porta está exposta na rede: HABBLAUD_BIND={0}": "le port est exposé sur le réseau : HABBLAUD_BIND={0}",
   "a porta está exposta na rede: HABBLAUD_HOST={0}": "le port est exposé sur le réseau : HABBLAUD_HOST={0}",
   "mesma trava do terminal: {0}": "même verrou que le terminal : {0}",
+  "tem quebra de linha ou caractere de controle": "il contient un saut de ligne ou un caractère de contrôle",
+  "passa de {0} caracteres": "il dépasse {0} caractères",
+  "HABBLAUD_OFFICE_NAME ignorada ({0}): o escritório fica com o nome \"{1}\"": "HABBLAUD_OFFICE_NAME ignorée ({0}) : le bureau garde le nom « {1} »",
 
   // server/history/daystats.ts
   "Não foi possível ler {0} ({1}).": "Impossible de lire {0} ({1}).",
@@ -1587,6 +1590,7 @@ export const FR: Readonly<Record<string, string>> = {
   "   Terminal: desligado ({0}).": "   Terminal : désactivé ({0}).",
   "   Linha do tempo (timelapse): gravando em {0}.": "   Chronologie (timelapse) : enregistrement dans {0}.",
   "   Linha do tempo (timelapse): gravação desligada (HABBLAUD_TIMELINE).": "   Chronologie (timelapse) : enregistrement désactivé (HABBLAUD_TIMELINE).",
+  "   Nome do escritório: {0} (HABBLAUD_OFFICE_NAME).": "   Nom du bureau : {0} (HABBLAUD_OFFICE_NAME).",
   "   Responder pelo escritório: {0}.": "   Réponse depuis le bureau : {0}.",
   "ligado (precisa do mod: npm run mod:install; ou do hook antigo: npm run hooks:install)": "activée (nécessite le mod : npm run mod:install ; ou l'ancien hook : npm run hooks:install)",
   "desligado (mesma trava do terminal)": "désactivée (même verrou que le terminal)",

@@ -478,7 +478,7 @@ export const EN: Readonly<Record<string, string>> = {
   "Expandir na tela toda": "Expand to full screen",
 
   // client/src/ui/notify.ts
-  "Habblaud — precisa de você": "Habblaud — needs you",
+  "{0} — precisa de você": "{0} — needs you",
 
   // client/src/ui/overlays.ts
   "Conectando ao escritório…": "Connecting to the office…",
@@ -1607,6 +1607,9 @@ export const EN: Readonly<Record<string, string>> = {
   "a porta está exposta na rede: HABBLAUD_BIND={0}": "the port is exposed on the network: HABBLAUD_BIND={0}",
   "a porta está exposta na rede: HABBLAUD_HOST={0}": "the port is exposed on the network: HABBLAUD_HOST={0}",
   "mesma trava do terminal: {0}": "same lock as the terminal: {0}",
+  "tem quebra de linha ou caractere de controle": "it has a line break or a control character",
+  "passa de {0} caracteres": "it's longer than {0} characters",
+  "HABBLAUD_OFFICE_NAME ignorada ({0}): o escritório fica com o nome \"{1}\"": "HABBLAUD_OFFICE_NAME ignored ({0}): the office keeps the name \"{1}\"",
 
   // server/history/daystats.ts
   "Não foi possível ler {0} ({1}).": "Couldn't read {0} ({1}).",
@@ -1725,6 +1728,7 @@ export const EN: Readonly<Record<string, string>> = {
   "   Terminal interativo: {0}.": "   Interactive terminal: {0}.",
   "   Linha do tempo (timelapse): gravando em {0}.": "   Timeline (timelapse): recording to {0}.",
   "   Linha do tempo (timelapse): gravação desligada (HABBLAUD_TIMELINE).": "   Timeline (timelapse): recording off (HABBLAUD_TIMELINE).",
+  "   Nome do escritório: {0} (HABBLAUD_OFFICE_NAME).": "   Office name: {0} (HABBLAUD_OFFICE_NAME).",
   "   Responder pelo escritório: {0}.": "   Reply from the office: {0}.",
   "ligado (precisa do mod: npm run mod:install; ou do hook antigo: npm run hooks:install)": "on (needs the mod: npm run mod:install; or the old hook: npm run hooks:install)",
   "desligado (mesma trava do terminal)": "off (same lock as the terminal)",

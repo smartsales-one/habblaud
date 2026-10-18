@@ -470,6 +470,14 @@ describe('Office', () => {
     expect(new Office({ ...deps, terminal: false }).commit().snapshot.meta.terminal).toBe(false);
   });
 
+  it('meta.officeName: o nome configurado; sem ele (ou inválido), "Habblaud"', () => {
+    const deps = { names: new NameStore(null), version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };
+    expect(makeOffice().office.commit().snapshot.meta.officeName).toBe('Habblaud');
+    expect(new Office({ ...deps, officeName: 'SmartSales Corp.' }).commit().snapshot.meta.officeName).toBe('SmartSales Corp.');
+    expect(new Office({ ...deps, officeName: '  Acme  ' }).commit().snapshot.meta.officeName).toBe('Acme');
+    expect(new Office({ ...deps, officeName: 'a\nb' }).commit().snapshot.meta.officeName).toBe('Habblaud');
+  });
+
   it('canMessage: só principais presentes que o registro de mensagens vê conectados; meta.messages com o recurso ligado', () => {
     const reach = new Set<string>();
     const deps = { names: new NameStore(null), version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };

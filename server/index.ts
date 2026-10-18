@@ -40,6 +40,7 @@ import { CodexSource } from './sources/codex/source';
 import { createBuildReader, readBuildInfo } from './build';
 import { UpdateChecker } from './updates/checker';
 import { getLocale, tr } from '../shared/i18n';
+import { DEFAULT_OFFICE_NAME } from '../shared/office-name';
 import type { WorldLocale } from '../shared/world/protocol';
 import { createCliRunner, createOpener, SpawnService } from './spawn/spawn';
 import { runnableClaudeBin } from './claude-bin';
@@ -129,6 +130,7 @@ const office = new Office({
   ptys: () => (late.ptys ? { status: late.ptys.status(), list: late.ptys.list() } : { status: { enabled: false, reason: late.ptyOff ?? tr('desligado') }, list: [] }),
   updates: () => updates.status(),
   world: () => world?.meta() ?? { enabled: false, configured: false, state: 'off' },
+  officeName: config.officeName,
 });
 // Fontes de agentes, uma por ferramenta (sources/source.ts): a do Claude Code e, depois dela, a do Codex (quando há
 // pastas do Codex; HABBLAUD_CODEX=0 desliga), com o histórico dela no HistorySet abaixo e as contas registradas por
@@ -471,6 +473,8 @@ if (config.remote) {
 server.listen(config.port, config.host, () => {
   const host = config.host === '0.0.0.0' || config.host === '::' ? 'localhost' : config.host;
   log.info(tr('🏢 Habblaud {0}{1}{2} em http://{3}:{4}', [config.version, config.dev ? ' (dev)' : '', config.inDocker ? ' (docker)' : '', host, config.port]));
+  if (config.officeNameWarning) log.warn(`   ${config.officeNameWarning}.`);
+  else if (config.officeName !== DEFAULT_OFFICE_NAME) log.info(tr('   Nome do escritório: {0} (HABBLAUD_OFFICE_NAME).', [config.officeName]));
   const list = accounts.entries();
   if (!list.length) log.warn(tr('Nenhuma pasta do Claude Code encontrada (defina HABBLAUD_CLAUDE_DIRS).'));
   for (const dir of codexDirsRefused(process.env, config.home)) {

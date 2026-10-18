@@ -28,6 +28,7 @@ import { nameKey, type AppearanceParts } from '../../shared/appearance';
 import { DemoSimulator } from '../../shared/demo/simulator';
 import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } from '../../shared/github';
 import { hash32 } from '../../shared/hash';
+import { officeNameOf } from '../../shared/office-name';
 import { applyPermission } from '../permissions/registry';
 import type { NameStore, StoredCharacter } from './names';
 import { normalizeCwd, roomDisplayNames, SlotAllocator } from './rooms';
@@ -80,6 +81,8 @@ export interface OfficeDeps {
   ptys?: () => { status: PtyStatus; list: PtyInfo[] };
   /** Habblaud World (WorldService.meta; ver OfficeSnapshot.meta.world). */
   world?: () => WorldMeta;
+  /** Nome do escritório (ServerConfig.officeName; ver OfficeSnapshot.meta.officeName). Ausente = "Habblaud". */
+  officeName?: string;
   now?: () => number;
 }
 
@@ -998,6 +1001,7 @@ export class Office {
         sources: this.deps.sources(),
         startedAt: this.deps.startedAt,
         version: this.deps.version,
+        officeName: officeNameOf(this.deps.officeName),
         build: this.deps.build?.(),
         terminal: this.deps.terminal === true,
         messages: this.deps.messages !== undefined,

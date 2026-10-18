@@ -344,6 +344,12 @@ export interface OfficeSnapshot {
     startedAt: number;
     version: string;
     /**
+     * Nome do escritório (HABBLAUD_OFFICE_NAME; padrão "Habblaud", até 40 caracteres, sem quebra de linha): o logotipo
+     * da barra do topo, o título da aba, as notificações e a placa da recepção. O servidor sempre manda; ausente em
+     * servidores antigos, no timelapse e na visita a um prédio do mundo (a página usa "Habblaud": shared/office-name.ts).
+     */
+    officeName?: string;
+    /**
      * Identificador do build do cliente que o servidor está servindo (nome do bundle, ex.: "main-BFqheOCa").
      * Uma página aberta com outro build está desatualizada e deve se recarregar. Ausente no modo dev.
      */

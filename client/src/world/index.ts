@@ -12,6 +12,7 @@ import { RECEPTION_ID } from './layout/core';
 import { inRect } from './layout/geometry';
 import { attachInput, type Hit } from './input';
 import type { AgentInfo } from '../../../shared/types';
+import { officeNameOf } from '../../../shared/office-name';
 import { rebaseSnapshot } from './playback';
 import { Overlay } from './render/overlay';
 import { Renderer } from './render/renderer';
@@ -54,10 +55,13 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   let options: WorldOptions = { ...DEFAULT_WORLD_OPTIONS };
   const visitMode = !!o.visit;
   const camera = new Camera();
+  // Placa da recepção: o nome do escritório ao vivo, também no timelapse (os instantes reproduzidos não o trazem). Na
+  // visita a um prédio do mundo o snapshot não tem o nome: fica o padrão.
+  const officeName = () => officeNameOf(store.liveSnapshot?.meta.officeName);
   // Simulação e desenho são recriados quando o timelapse entra, pula ou sai (rebuild).
   let sim = new Sim(art, () => options, undefined, { visit: visitMode });
   let renderer = new Renderer(canvas, art, sim, camera);
-  let overlay = new Overlay(renderer.ctx, sim, renderer, camera);
+  let overlay = new Overlay(renderer.ctx, sim, renderer, camera, officeName);
   let assets: WorldAssets | null = null;
   /** Timelapse ligado: relógio próprio do mundo (`worldNow`), acelerado pelo fator de animação. */
   let playback: WorldPlayback | null = null;
@@ -378,7 +382,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
       const p = playback;
       renderer.clock = () => p.clock();
     }
-    overlay = new Overlay(renderer.ctx, sim, renderer, camera);
+    overlay = new Overlay(renderer.ctx, sim, renderer, camera, officeName);
     debug = createDebug(sim, renderer, camera, markMoved);
     cues = new SoundCues(sim, camera);
     lastCols = -1;

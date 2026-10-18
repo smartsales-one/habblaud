@@ -648,7 +648,8 @@
   gap: 4px;
 }
 
-/* Logotipo em pixels: 47×8 px da placa da marca, em escala inteira (3×) para ficar nítido. */
+/* Logotipo em pixels com o nome do escritório (fonte bitmap da placa da marca), em escala inteira para ficar nítido:
+   o tamanho vem nos atributos do SVG (ui/widgets.ts: 3× na barra, "Habblaud" = 45×8 px -> 135×24). */
 .ui-brand__name {
   display: block;
   line-height: 0;
@@ -656,9 +657,19 @@
 
 .ui-wordmark {
   display: block;
-  width: 135px;
-  height: 24px;
   image-rendering: pixelated;
+}
+
+/* Nome com um caractere que a fonte bitmap não tem: texto na fonte pixelada, nas cores do logotipo. */
+.ui-wordmark-text {
+  display: block;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 20px/24px var(--font-px);
+  color: #f4f1ea;
+  text-shadow: 0 2px 0 rgba(6, 8, 14, 0.62);
 }
 
 .ui-topbar__status {
@@ -3314,11 +3325,6 @@
 .ui-splash__name {
   display: block;
   line-height: 0;
-}
-
-.ui-splash__name .ui-wordmark {
-  width: 225px;
-  height: 40px;
 }
 
 .ui-splash__text {

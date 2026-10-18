@@ -15,6 +15,7 @@ import { buildAnim } from './anim';
 import { drawFxBanner } from './github-fx';
 import type { HeadInfo, Renderer } from './renderer';
 import { tr } from '../../../../shared/i18n';
+import { DEFAULT_OFFICE_NAME } from '../../../../shared/office-name';
 
 // A Pixelify Sans tem o "C" maiúsculo quase fechado (lê-se "Oopa" em vez de "Copa") em qualquer
 // peso/tamanho usado no canvas; os textos do mundo usam a fonte do sistema, sempre legível.
@@ -205,6 +206,8 @@ export class Overlay {
     private readonly sim: Sim,
     private readonly renderer: Renderer,
     private readonly camera: Camera,
+    /** Nome do escritório na placa da recepção (meta.officeName do snapshot ao vivo; padrão "Habblaud"). */
+    private readonly officeName: () => string = () => DEFAULT_OFFICE_NAME,
   ) {}
 
   /** Descarta medições (ex.: depois que uma fonte carregou). */
@@ -419,7 +422,7 @@ export class Overlay {
       const anim = room ? buildAnim(room.phase, room.progress(now)) : null;
       // texto da placa quando ela fica grande o bastante para ler; senão, o nome flutuante
       const rect = this.renderer.signRect(vis);
-      const text = room ? room.info.name : vis.id === 'core:recepcao' ? 'Habblaud' : null;
+      const text = room ? room.info.name : vis.id === 'core:recepcao' ? this.officeName() : null;
       const readable = !!rect && rect.h * zoom >= SIGN_MIN_PX;
       if (readable && rect && text && (!anim || anim.sign >= 1)) {
         const ax = this.sx(rect.x);

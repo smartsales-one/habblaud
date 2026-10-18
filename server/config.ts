@@ -9,6 +9,7 @@ import { parseAllowedHosts } from './http/guard';
 import { parseRemoteConfig, type RemoteConfig } from './http/remote';
 import { parseGithubRepo } from './updates/checker';
 import { tr } from '../shared/i18n';
+import { DEFAULT_OFFICE_NAME, OFFICE_NAME_MAX, officeNameProblem } from '../shared/office-name';
 
 export interface ServerConfig {
   port: number;
@@ -58,6 +59,10 @@ export interface ServerConfig {
   remoteWarning?: string;
   /** Habblaud World (server/world/): conta, personagem e, nas próximas fases, o prédio no mundo. */
   world: WorldConfig;
+  /** Nome do escritório (HABBLAUD_OFFICE_NAME; padrão "Habblaud"): vai em OfficeSnapshot.meta.officeName. */
+  officeName: string;
+  /** Por que HABBLAUD_OFFICE_NAME foi recusada (vai para o log ao iniciar; o nome fica o padrão). */
+  officeNameWarning?: string;
 }
 
 export interface WorldConfig {
@@ -217,6 +222,20 @@ export function parseWorldConfig(env: NodeJS.ProcessEnv, argv: string[]): WorldC
   return { enabled, dev, url: `${secure ? 'https:' : 'http:'}//${u.host}` };
 }
 
+/**
+ * Nome do escritório a partir de HABBLAUD_OFFICE_NAME (shared/office-name.ts): sem os espaços das pontas, até
+ * OFFICE_NAME_MAX caracteres e sem quebra de linha. Ausente ou vazia = "Habblaud"; recusada = "Habblaud", com o motivo
+ * em `warning`.
+ */
+export function parseOfficeName(env: NodeJS.ProcessEnv): { name: string; warning?: string } {
+  const name = env.HABBLAUD_OFFICE_NAME?.trim() ?? '';
+  const problem = officeNameProblem(name);
+  if (!problem) return { name };
+  if (problem === 'empty') return { name: DEFAULT_OFFICE_NAME };
+  const why = problem === 'control' ? tr('tem quebra de linha ou caractere de controle') : tr('passa de {0} caracteres', [OFFICE_NAME_MAX]);
+  return { name: DEFAULT_OFFICE_NAME, warning: tr('HABBLAUD_OFFICE_NAME ignorada ({0}): o escritório fica com o nome "{1}"', [why, DEFAULT_OFFICE_NAME]) };
+}
+
 /** Endereço do WebSocket do mundo a partir da base HTTP(S) (ServerConfig.world.url). */
 export function worldSocketUrl(base: string): string {
   return `${base.replace(/^http/, 'ws').replace(/\/+$/, '')}/v1/socket`;
@@ -230,6 +249,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
   const host = env.HABBLAUD_HOST?.trim() || '127.0.0.1';
   const pkg = readPackage(rootDir);
   const remote = parseRemoteConfig(env, inDocker);
+  const officeName = parseOfficeName(env);
   return {
     port: Number.isFinite(port) && port > 0 && port < 65536 ? port : 4747,
     host,
@@ -252,5 +272,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
     remote: remote.config,
     remoteWarning: remote.warning,
     world: parseWorldConfig(env, argv),
+    officeName: officeName.name,
+    officeNameWarning: officeName.warning,
   };
 }

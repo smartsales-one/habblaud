@@ -10,8 +10,9 @@ import { TIMELAPSE_ICONS } from './timelapse';
 import { focusPermission, nextPermissionAgent, permissionAgents } from './permission';
 import { UsageCards } from './usage';
 import { VersionChip } from './version';
-import { wordmark } from './widgets';
+import { setWordmark, wordmark } from './widgets';
 import { tr } from '../../../shared/i18n';
+import { officeNameOf } from '../../../shared/office-name';
 
 interface CounterRefs {
   el: HTMLElement;
@@ -36,6 +37,8 @@ export class TopBar implements UiComponent {
   private demoBadge: HTMLElement;
   /** Linha de baixo da marca (conexão, versão, selos): o chip do Habblaud World entra aqui (ui/index.ts). */
   private status: HTMLElement;
+  /** Logotipo com o nome do escritório (meta.officeName do snapshot ao vivo). */
+  private brandName: HTMLElement;
   private counters = new Map<keyof Counters, CounterRefs>();
   private shellsBtn: HTMLButtonElement;
   /** Próximo agente do botão de shells (cliques seguidos passam por todos, do que espera há mais tempo). */
@@ -136,6 +139,7 @@ export class TopBar implements UiComponent {
       iconButton(ICONS.help, tr('Ajuda (?)'), () => ctx.openHelp()),
     );
     this.panelGroup = panelGroup;
+    this.brandName = wordmark();
 
     this.el = h(
       'header',
@@ -148,7 +152,7 @@ export class TopBar implements UiComponent {
           'div',
           { class: 'ui-brand' },
           mark,
-          h('div', { class: 'ui-brand__text' }, wordmark(), this.status),
+          h('div', { class: 'ui-brand__text' }, this.brandName, this.status),
         ),
       ),
       counterWrap,
@@ -175,6 +179,9 @@ export class TopBar implements UiComponent {
   render(): void {
     const { store } = this.ctx;
     const snap = store.snapshot;
+
+    // Nome do escritório: o do servidor ao vivo, mesmo durante o timelapse.
+    setWordmark(this.brandName, officeNameOf(store.liveSnapshot?.meta.officeName));
 
     // Conexão.
     const conn = store.connection;

@@ -6,8 +6,12 @@ import type { SoundBoard } from '../audio/board';
 import type { UiComponent, UiContext } from './context';
 import { computeCounters } from './model';
 import { tr } from '../../../shared/i18n';
+import { officeNameOf } from '../../../shared/office-name';
 
-const BASE_TITLE = 'Habblaud';
+/** Título da aba: o nome do escritório (HABBLAUD_OFFICE_NAME), com quantos agentes esperam você na frente. */
+export function tabTitle(officeName: string, waiting: number): string {
+  return waiting > 0 ? `(${waiting}) ${officeName}` : officeName;
+}
 
 export type NotificationState = 'unsupported' | 'default' | 'granted' | 'denied';
 
@@ -39,8 +43,8 @@ export class Notifier implements UiComponent {
 
   render(): void {
     // Ao vivo, mesmo durante o timelapse: o título da aba avisa quem precisa de você agora.
-    const waiting = computeCounters(this.ctx.store.liveSnapshot).waiting;
-    const title = waiting > 0 ? `(${waiting}) ${BASE_TITLE}` : BASE_TITLE;
+    const live = this.ctx.store.liveSnapshot;
+    const title = tabTitle(officeNameOf(live?.meta.officeName), computeCounters(live).waiting);
     if (title !== this.lastTitle) {
       this.lastTitle = title;
       document.title = title;
@@ -54,7 +58,7 @@ export class Notifier implements UiComponent {
     else if (n.level === 'success') this.sounds.play('pop');
     if (n.level === 'alert' && prefs.browserNotifications && document.hidden && notificationState() === 'granted') {
       try {
-        const notification = new Notification(tr('Habblaud — precisa de você'), {
+        const notification = new Notification(tr('{0} — precisa de você', [officeNameOf(this.ctx.store.liveSnapshot?.meta.officeName)]), {
           body: n.text,
           tag: n.agentId ?? n.id,
           icon: '/assets/brand/favicon-32.png',

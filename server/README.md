@@ -489,6 +489,7 @@ em `shared/world/city.ts` (fonte da verdade; o servidor do mundo guarda a cópia
 | `HABBLAUD_DATA_DIR` | `~/.habblaud` (Docker: `/data`) | estado do Habblaud (nomes e personagens dos projetos persistidos em `names.json`, linha do tempo em `timeline/`, estatísticas do Meu dia em `stats/`, última verificação de versão em `updates.json`) |
 | `HABBLAUD_TIMELINE` | ligado | `0` desliga a gravação da linha do tempo do timelapse |
 | `HABBLAUD_UPDATE_CHECK` | ligado | `0` desliga a verificação de versão nova (releases do repositório do `package.json` no GitHub, a cada 6 h) |
+| `HABBLAUD_OFFICE_NAME` | `Habblaud` | nome do escritório (logotipo da barra do topo, título da aba, notificações e placa da recepção; vai em `meta.officeName`): até 40 caracteres, sem quebra de linha (recusado, fica o padrão e o log avisa) |
 | `HABBLAUD_LANG` | idioma do sistema (`LC_ALL`/`LANG`/Intl) | idioma dos textos montados pelo servidor: `pt-BR` ou `fr` (shared/i18n.ts) |
 | `HABBLAUD_DEMO` | desligado | `1` liga o modo demonstração ao iniciar |
 | `HABBLAUD_IN_DOCKER` | auto (`/.dockerenv`) | `1` = não confere PIDs (são do host) |

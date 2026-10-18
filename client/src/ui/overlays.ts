@@ -3,11 +3,18 @@ import type { UiComponent, UiContext } from './context';
 import { h, prefersReducedMotion, setHidden, setText } from './dom';
 import { FALLBACK_MARK } from './icons';
 import { emptyOfficeHint } from './provider';
-import { wordmark } from './widgets';
+import { wordmark, type WordmarkSize } from './widgets';
 import { tr } from '../../../shared/i18n';
+import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 
 /** Depois de quanto tempo sem conexão o aviso aparece. */
 const DISCONNECTED_BANNER_MS = 8_000;
+
+/**
+ * Logotipo do carregamento: 5x (o "Habblaud" fica com 225 px). O nome do escritório só chega com o snapshot, que é
+ * quando o carregamento some: aqui fica sempre o do produto.
+ */
+const SPLASH_WORDMARK: WordmarkSize = { scale: 5, maxPx: 400 };
 
 function brandMark(size: number): HTMLElement {
   const mark = h('span', { class: 'ui-brand__mark' });
@@ -31,7 +38,7 @@ export class Splash implements UiComponent {
     this.el = h(
       'div',
       { class: 'ui-splash', role: 'status', attrs: { 'aria-live': 'polite' } },
-      h('div', { class: 'ui-splash__inner' }, brandMark(64), wordmark('ui-splash__name'), this.text, h('span', { class: 'ui-splash__bar' })),
+      h('div', { class: 'ui-splash__inner' }, brandMark(64), wordmark('ui-splash__name', DEFAULT_OFFICE_NAME, SPLASH_WORDMARK), this.text, h('span', { class: 'ui-splash__bar' })),
     );
   }
 

@@ -37,6 +37,8 @@ services:
       # 0 desliga a verificação de versão nova (consulta às releases no GitHub a cada 6 h).
       HABBLAUD_UPDATE_CHECK: ${HABBLAUD_UPDATE_CHECK:-}
       HABBLAUD_LANG: ${HABBLAUD_LANG:-}
+      # Nome do escritório (logotipo, título da aba, notificações e placa da recepção); vazio = Habblaud.
+      HABBLAUD_OFFICE_NAME: ${HABBLAUD_OFFICE_NAME:-}
       # 0 desliga as sessões do Codex no escritório.
       HABBLAUD_CODEX: ${HABBLAUD_CODEX:-}
       # 1 liga o Novo agente pelo escritório (no Docker, quem começa a sessão é o auxiliar do host, npm run
