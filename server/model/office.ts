@@ -26,7 +26,7 @@ import type {
 import { SHELL_WAIT_TOOL, SPECIAL, type ShellOutcome } from '../../shared/activity';
 import { nameKey, type AppearanceParts } from '../../shared/appearance';
 import { DemoSimulator } from '../../shared/demo/simulator';
-import { EXTERNAL_ROOMS, EXTERNAL_TTL_MS, externalAgentId, type ExternalAgentInput } from '../../shared/external';
+import { EXTERNAL_MAX, EXTERNAL_ROOMS, EXTERNAL_TTL_MS, externalAgentId, type ExternalAgentInput } from '../../shared/external';
 import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } from '../../shared/github';
 import { hash32 } from '../../shared/hash';
 import { officeNameOf } from '../../shared/office-name';
@@ -821,7 +821,7 @@ export class Office {
    * (sem ela, fica a última). Sem aviso nem feed: quem fala por ele é ele mesmo. Um PUT idêntico (o de vida) só renova
    * a expiração, sem snapshot novo.
    */
-  upsertExternal(key: string, p: ExternalAgentInput): 'created' | 'updated' {
+  upsertExternal(key: string, p: ExternalAgentInput): 'created' | 'updated' | 'full' | 'conflict' {
     const now = this.now();
     const id = externalAgentId(key);
     const roomId = EXTERNAL_ROOMS[p.room];
@@ -830,6 +830,10 @@ export class Office {
     let rec = this.externals.get(id);
     const created = !rec;
     if (!rec) {
+      // 'full': já há EXTERNAL_MAX externos (um novo não entra; atualizar um deles sempre vale). 'conflict': um agente de
+      // verdade com o mesmo id (conta numa pasta chamada "external"): o snapshot não pode ter dois ids iguais.
+      if (this.externals.size >= EXTERNAL_MAX) return 'full';
+      if (this.agents.has(id)) return 'conflict';
       rec = {
         info: {
           id,
@@ -1116,7 +1120,8 @@ export class Office {
       return rest;
     });
     // Personagens externos: principais comuns no snapshot (canMessage sempre false; fora das contas e das salas).
-    const externals = [...this.externals.values()].map((r) => cloneAgent(r.info));
+    // Um agente de verdade que chegou depois com o mesmo id ganha: o externo fica de fora até ele sair.
+    const externals = [...this.externals.values()].filter((r) => !this.agents.has(r.info.id)).map((r) => cloneAgent(r.info));
     const trim = (a: AgentInfo): AgentInfo => (a.recent.length > SNAPSHOT_RECENT ? { ...a, recent: a.recent.slice(-SNAPSHOT_RECENT) } : a);
     const sessions = new Map<string, number>();
     for (const a of real) if (a.kind === 'main' && a.status !== 'offline') sessions.set(a.account, (sessions.get(a.account) ?? 0) + 1);

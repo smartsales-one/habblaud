@@ -1667,6 +1667,10 @@ export const ES: Readonly<Record<string, string>> = {
   "esperado {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting ou idle, activity?: até {1} caracteres, waitingFor?: até {2} caracteres, seed?: inteiro de 0 a 4294967295, look?: f ou m}": "se esperaba {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting o idle, activity?: hasta {1} caracteres, waitingFor?: hasta {2} caracteres, seed?: entero de 0 a 4294967295, look?: f o m}",
   "Personagem externo": "Personaje externo",
   "Gerência": "Gerencia",
+  "aguardando você": "esperándote",
+  "personagens externos demais: no máximo {0} ao mesmo tempo": "demasiados personajes externos: como máximo {0} a la vez",
+  "já existe um agente com este id no escritório": "ya hay un agente con este id en la oficina",
+  "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "personaje externo desactivado: solo funciona con Habblaud accesible únicamente desde el propio equipo",
 
   // server/http/sessions.ts
   "Histórico de sessões: falha ao listar ({0}).": "Historial de sesiones: error al listar ({0}).",

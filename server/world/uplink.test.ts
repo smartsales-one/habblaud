@@ -236,14 +236,19 @@ describe('BuildingUplink: conexão e remessas', () => {
     expect(h.changes.n).toBeGreaterThan(0);
   });
 
-  it('o personagem externo e a Gerência não sobem', async () => {
+  it('o personagem externo e a Gerência não sobem (pelo provider, não pelo id)', async () => {
     const h = await start({ start: false });
-    h.agents = [...h.agents, agent('external:claudio', 'core:gerencia', { provider: 'external', name: 'Claudio', status: 'waiting' })];
+    h.agents = [
+      ...h.agents,
+      agent('external:claudio', 'core:gerencia', { provider: 'external', name: 'Claudio', status: 'waiting' }),
+      // Agente de verdade de uma conta numa pasta "external": o id começa igual, mas ele sobe.
+      agent('external:4242', '/Users/ana/outro', { account: 'external' }),
+    ];
     h.uplink.start();
     await waitFor(() => h.world.ws.uplinks.length === 1, 'primeira remessa');
     const { uplink } = h.world.ws.uplinks[0];
     expect(uplink.floors).toHaveLength(2);
-    expect(agentsOf(uplink)).toHaveLength(3);
+    expect(agentsOf(uplink)).toHaveLength(4);
     for (const leak of ['external', 'gerencia', 'Claudio']) expect(JSON.stringify(uplink), leak).not.toContain(leak);
   });
 

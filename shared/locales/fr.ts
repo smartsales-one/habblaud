@@ -2208,6 +2208,10 @@ export const FR: Readonly<Record<string, string>> = {
   "esperado {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting ou idle, activity?: até {1} caracteres, waitingFor?: até {2} caracteres, seed?: inteiro de 0 a 4294967295, look?: f ou m}": "attendu {name: texte de 1 à {0} caractères, room: \"gerencia\", status: working, waiting ou idle, activity?: jusqu'à {1} caractères, waitingFor?: jusqu'à {2} caractères, seed?: entier de 0 à 4294967295, look?: f ou m}",
   "Personagem externo": "Personnage externe",
   "Gerência": "Direction",
+  "aguardando você": "vous attend",
+  "personagens externos demais: no máximo {0} ao mesmo tempo": "trop de personnages externes : {0} au maximum à la fois",
+  "já existe um agente com este id no escritório": "il y a déjà un agent avec cet id dans le bureau",
+  "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "personnage externe désactivé : il ne fonctionne que si Habblaud n'est accessible que depuis l'ordinateur lui-même",
 
   // server/index.ts
   "desligado por HABBLAUD_PTY={0}": "désactivé par HABBLAUD_PTY={0}",

@@ -233,6 +233,14 @@ describe('projeção: regras', () => {
     expect(project(input([room('core:gerencia')], [agents[1]]), new FakeIds(), NOW).floors).toEqual([]);
   });
 
+  it('um agente de verdade de uma conta numa pasta "external" (id "external:<pid>") continua subindo', () => {
+    const ids = new FakeIds();
+    const real = agent('external:4242', '/p/real', { account: 'external' });
+    const u = project(input([room('/p/real')], [real]), ids, NOW);
+    expect(agentsOf(u)).toHaveLength(1);
+    expect(ids.calls).toContain('external:4242');
+  });
+
   it('só agentes presentes: done e offline somem, e a sala sem ninguém presente não vira andar', () => {
     const rooms = [room('/p/a'), room('/p/b'), room('/p/vazia')];
     const agents = [

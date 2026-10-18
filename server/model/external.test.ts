@@ -182,6 +182,36 @@ describe('Office: personagem externo', () => {
     expect(s.waiting[0]).toMatchObject({ id: ID, name: 'Claudio', room: 'Gerência', waitingFor: 'Para qual projeto?', answerable: false });
   });
 
+  it('esperando sem waitingFor: o resumo do mod diz "aguardando você" (ele não tem terminal)', () => {
+    const { office, now } = makeOffice();
+    office.upsertExternal('claudio', { name: 'Claudio', room: 'gerencia', status: 'waiting' });
+    office.addMain({ id: 'acc:1', account: 'acc', sessionId: 's1', cwd: '/p/a', role: 'x', startedAt: now(), status: 'idle' });
+    office.setStatus('acc:1', 'waiting');
+    const snap = office.commit().snapshot;
+    expect(snap.agents.find((a) => a.id === ID)!.waitingFor).toBeUndefined();
+    const s = modSummary(snap, (id) => office.has(id) || office.isExternal(id), 't');
+    expect(new Map(s.waiting.map((w) => [w.id, w.waitingFor]))).toEqual(
+      new Map([
+        [ID, 'aguardando você'],
+        ['acc:1', 'responder no terminal'],
+      ]),
+    );
+  });
+
+  it('no máximo 8 externos ao mesmo tempo (inclusive os que estão saindo); atualizar um deles sempre vale', () => {
+    const { office, advance } = makeOffice();
+    const body = { name: 'X', room: 'gerencia', status: 'idle' } as const;
+    for (let i = 0; i < 8; i++) expect(office.upsertExternal(`e${i}`, body)).toBe('created');
+    expect(office.upsertExternal('e8', body)).toBe('full');
+    expect(office.upsertExternal('e0', { ...body, status: 'working' })).toBe('updated');
+    advance(EXTERNAL_TTL_MS);
+    office.tick(); // todos offline, saindo
+    expect(office.upsertExternal('e8', body)).toBe('full');
+    advance(OFFLINE_GRACE_MS);
+    office.tick();
+    expect(office.upsertExternal('e8', body)).toBe('created');
+  });
+
   it('o nome do externo não é sorteado para um agente de verdade', () => {
     const { office, now } = makeOffice();
     office.upsertExternal('x', { name: 'Marina', room: 'gerencia', status: 'idle' });

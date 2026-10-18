@@ -257,4 +257,13 @@ describe('DayStatsService: personagem externo', () => {
     expect(r.stats.totals.ms).toEqual({ working: 20 * S, waiting: 0, idle: 0, shell: 0 });
     expect(r.stats.rooms.map((x) => x.id)).toEqual(['/p/loja']);
   });
+
+  it('um agente de verdade de uma conta numa pasta "external" (id "external:<pid>") entra', () => {
+    const env = setup(null);
+    const svc = env.make();
+    env.set(snapOf([agent({ id: 'external:4242', account: 'external' })]));
+    svc.sample();
+    env.run(svc, T0 + 20 * S);
+    expect(svc.day(DAY, 'UTC', 'real')!.stats.totals.ms.working).toBe(20 * S);
+  });
 });

@@ -3,12 +3,15 @@
 //   PUT    /api/external/agents/:id   {name, room: "gerencia", status, activity?, waitingFor?, seed?, look?}: 200 {ok, id}
 //   DELETE /api/external/agents/:id   sai na hora: 204 (também para um id que não está no escritório)
 // Mexe no que o escritório mostra: a MESMA trava do terminal interativo (ptyRequestProblem: conexão pelo loopback, Host
-// local, Origin da mesma origem, sem Sec-Fetch-Site cross-site/same-site) e nunca pela porta remota (conferido em
-// http/app.ts). A borda (http/guard.ts) já exige JSON em PUT e DELETE.
+// local, Origin da mesma origem, sem Sec-Fetch-Site cross-site/same-site), só com o terminal ligado (ServerConfig.terminal:
+// bind local e sem HABBLAUD_TERMINAL=0) e nunca pela porta remota (as duas conferidas em http/app.ts). A borda
+// (http/guard.ts) já exige JSON em PUT e DELETE (DELETE vai sem corpo, mas com Content-Type: application/json).
+// No máximo EXTERNAL_MAX externos ao mesmo tempo: um novo além disso é 429.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import {
   EXTERNAL_ACTIVITY_MAX,
   EXTERNAL_KEY_RE,
+  EXTERNAL_MAX,
   EXTERNAL_NAME_MAX,
   EXTERNAL_WAITING_MAX,
   externalAgentId,
@@ -61,6 +64,8 @@ export async function handleExternalRoute(req: IncomingMessage, res: ServerRespo
       ]),
     );
   }
-  office.upsertExternal(key, body);
+  const r = office.upsertExternal(key, body);
+  if (r === 'full') throw new HttpError(429, tr('personagens externos demais: no máximo {0} ao mesmo tempo', [EXTERNAL_MAX]));
+  if (r === 'conflict') throw new HttpError(409, tr('já existe um agente com este id no escritório'));
   sendJson(res, 200, { ok: true, id: externalAgentId(key) });
 }

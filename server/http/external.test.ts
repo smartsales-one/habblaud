@@ -24,13 +24,14 @@ interface Env {
   cleanup: () => void;
 }
 
-async function start(): Promise<Env> {
+async function start(opts: { terminal?: boolean } = {}): Promise<Env> {
   const tmp = tempDir();
   const accounts = new AccountsService({ dirs: [], home: tmp.dir, env: {}, onChange: () => {} });
   const office = new Office({ names: new NameStore(null), version: '9.9.9', startedAt: Date.now(), accounts: () => [], sources: () => [], accountName: () => undefined });
   const hub = new Hub(office, { throttleMs: 10 });
   hub.start();
-  const deps: ApiDeps = { office, hub, accounts, sources: () => [], version: '9.9.9', inDocker: false };
+  // terminal: a trava do terminal ligada (bind local e sem HABBLAUD_TERMINAL=0), como no servidor de verdade.
+  const deps: ApiDeps = { office, hub, accounts, sources: () => [], version: '9.9.9', inDocker: false, terminal: opts.terminal ?? true };
   const api = createApiHandler(deps);
   const guard = createRequestGuard({ allowedHosts: new Set(['habblaud.lan']) });
   const server = http.createServer((req, res) => {
@@ -252,5 +253,43 @@ describe('PUT|DELETE /api/external/agents/:id', () => {
     }
     expect((await request(env, '/api/external/agents', { method: 'PUT', body: OK_BODY })).status).toBe(404);
     expect((await request(env, '/api/external/agents/claudio/x', { method: 'PUT', body: OK_BODY })).status).toBe(404);
+  });
+
+  it(`no máximo 8 externos: o 9º novo é 429; atualizar um que já está sempre vale; saiu um, entra outro`, async () => {
+    for (let i = 1; i <= 8; i++) expect((await request(env, `/api/external/agents/a${i}`, { method: 'PUT', body: OK_BODY })).status, `a${i}`).toBe(200);
+    const ninth = await request(env, '/api/external/agents/a9', { method: 'PUT', body: OK_BODY });
+    expect(ninth.status).toBe(429);
+    expect(errorOf(ninth)).toMatch(/no máximo 8/);
+    expect((await request(env, '/api/external/agents/a3', { method: 'PUT', body: { ...OK_BODY, status: 'idle' } })).status).toBe(200);
+    expect((await snapshot(env)).agents.filter((a) => a.provider === 'external')).toHaveLength(8);
+    expect((await request(env, '/api/external/agents/a1', { method: 'DELETE' })).status).toBe(204);
+    expect((await request(env, '/api/external/agents/a9', { method: 'PUT', body: OK_BODY })).status).toBe(200);
+  });
+
+  it('id igual ao de um agente de verdade (conta numa pasta "external"): 409, e o de verdade continua sozinho', async () => {
+    env.office.addMain({ id: 'external:123', account: 'external', sessionId: 's1', cwd: '/p/loja', role: 'Agente principal', startedAt: Date.now(), status: 'working' });
+    const r = await request(env, '/api/external/agents/123', { method: 'PUT', body: OK_BODY });
+    expect(r.status).toBe(409);
+    expect(errorOf(r)).toMatch(/já existe um agente/);
+    const same = (await snapshot(env)).agents.filter((a) => a.id === 'external:123');
+    expect(same).toHaveLength(1);
+    expect(same[0].provider).toBeUndefined();
+  });
+});
+
+describe('PUT|DELETE /api/external/agents/:id com o terminal desligado', () => {
+  it('recusa (403), como o personagem do projeto e renomear salas', async () => {
+    const env = await start({ terminal: false });
+    try {
+      for (const method of ['PUT', 'DELETE']) {
+        const r = await request(env, ROUTE, { method, ...(method === 'PUT' ? { body: OK_BODY } : {}) });
+        expect(r.status, method).toBe(403);
+        expect(errorOf(r)).toMatch(/desligado/);
+      }
+      expect((await snapshot(env)).agents).toEqual([]);
+    } finally {
+      await env.close();
+      env.cleanup();
+    }
   });
 });

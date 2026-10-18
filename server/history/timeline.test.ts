@@ -134,6 +134,12 @@ describe('gravador da linha do tempo', () => {
     expect(JSON.stringify(recs)).not.toContain('Claudio');
   });
 
+  it('um agente de verdade de uma conta numa pasta "external" (id "external:<pid>") é gravado', () => {
+    const rec = recorder();
+    rec.ingest(snap([agent('external:4242', { account: 'external' })]));
+    expect((read()[0] as TimelineKeyframe).agents.map((a) => a.id)).toEqual(['external:4242']);
+  });
+
   it('keyframe periódico (a cada 5 min, mesmo sem mudança) e fim marcado ao parar', () => {
     const rec = recorder();
     rec.ingest(snap([agent('.claude:1')]));

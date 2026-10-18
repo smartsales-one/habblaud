@@ -22,6 +22,8 @@ export const EXTERNAL_KEY_RE = /^[a-z0-9-]{1,32}$/;
 export const EXTERNAL_NAME_MAX = 30;
 export const EXTERNAL_ACTIVITY_MAX = 120;
 export const EXTERNAL_WAITING_MAX = 80;
+/** No máximo tantos personagens externos ao mesmo tempo (inclusive os que estão saindo); atualizar um deles sempre vale. */
+export const EXTERNAL_MAX = 8;
 
 /** Salas aceitas em `room` (por enquanto só a Gerência) e o id de cada uma no snapshot. */
 export const EXTERNAL_ROOMS = { gerencia: GERENCIA_ROOM_ID } as const;
@@ -46,13 +48,18 @@ export function externalAgentId(key: string): string {
   return EXTERNAL_ID_PREFIX + key;
 }
 
-export function isExternalId(id: string): boolean {
-  return id.startsWith(EXTERNAL_ID_PREFIX);
+/**
+ * É o personagem externo? Só pelo provider, que só o Office põe (upsertExternal): pelo id não dá, porque o id de um agente
+ * de verdade começa pela conta (o nome da pasta) e uma pasta chamada "external" daria "external:<pid>" — e esse agente
+ * de verdade não pode sumir do Habblaud World, do timelapse nem do "Meu dia".
+ */
+export function isExternalAgent(a: Pick<AgentInfo, 'provider'>): boolean {
+  return a.provider === 'external';
 }
 
-/** É o personagem externo (pelo provider ou pelo id)? */
-export function isExternalAgent(a: Pick<AgentInfo, 'id' | 'provider'>): boolean {
-  return a.provider === 'external' || isExternalId(a.id);
+/** Motivo de espera quando o externo espera sem dizer o quê (nada de "no terminal": ele não tem terminal). */
+export function externalWaitingFallback(): string {
+  return tr('aguardando você');
 }
 
 /** Nome traduzido de uma sala fixa do externo (undefined = não é uma delas). */

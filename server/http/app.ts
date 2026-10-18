@@ -4,7 +4,7 @@ import { NAME_MAX, parseAppearanceParts, parseCharacterName, parseSeed } from '.
 import type { AccessInfo, AgentInfo, ModSummary, OfficeSnapshot, SourceInfo, UpdateStatus } from '../../shared/types';
 import type { AccountsService } from '../accounts/service';
 import { handleCodexEvent } from '../codex/http';
-import { externalRoomName } from '../../shared/external';
+import { externalRoomName, externalWaitingFallback, isExternalAgent } from '../../shared/external';
 import { handleExternalRoute } from './external';
 import type { DayStatsService } from '../history/daystats';
 import type { Office } from '../model/office';
@@ -256,7 +256,7 @@ export function modSummary(
       name: a.name,
       room: rooms.get(a.roomId) ?? externalRoomName(a.roomId) ?? a.roomId,
       account: a.account,
-      waitingFor: a.waitingFor ?? tr('responder no terminal'),
+      waitingFor: a.waitingFor ?? (isExternalAgent(a) ? externalWaitingFallback() : tr('responder no terminal')),
       since: a.statusSince,
       answerable: !!a.permission,
     }));
@@ -485,11 +485,15 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
       return true;
     }
     if (path === '/api/external' || path.startsWith('/api/external/')) {
-      // Personagem externo (http/external.ts): a trava do terminal interativo, e nunca pela porta remota (já recusada
-      // acima, em isLocalOnlyPath; conferido de novo aqui).
+      // Personagem externo (http/external.ts): a trava do terminal interativo, só com o terminal ligado (como o
+      // personagem do projeto e renomear salas) e nunca pela porta remota (já recusada acima, em isLocalOnlyPath;
+      // conferido de novo aqui).
       if (isRemote(req)) {
         req.resume();
         sendJson(res, 403, { error: tr('rota só do próprio computador (hooks, plugins e o auxiliar do host)') });
+      } else if (!deps.terminal) {
+        req.resume();
+        sendJson(res, 403, { error: tr('personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador') });
       } else handleExternalRoute(req, res, path, office).catch((err) => fail(res, err));
       return true;
     }
