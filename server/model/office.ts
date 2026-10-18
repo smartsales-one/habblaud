@@ -26,6 +26,7 @@ import type {
 import { SHELL_WAIT_TOOL, SPECIAL, type ShellOutcome } from '../../shared/activity';
 import { nameKey, type AppearanceParts } from '../../shared/appearance';
 import { DemoSimulator } from '../../shared/demo/simulator';
+import { EXTERNAL_ROOMS, EXTERNAL_TTL_MS, externalAgentId, type ExternalAgentInput } from '../../shared/external';
 import { describeGitHubEvent, githubEventKey, RoomEffects, type GitHubEvent } from '../../shared/github';
 import { hash32 } from '../../shared/hash';
 import { officeNameOf } from '../../shared/office-name';
@@ -136,6 +137,19 @@ interface AgentRecord {
   shellWait?: { id: string; prev?: Activity };
 }
 
+/**
+ * Personagem externo (shared/external.ts): guardado à parte dos agentes das ferramentas, então fica fora de list(),
+ * get() e has() (Habblaud World, terminal, personagem do projeto, permissões) e só aparece no snapshot e no detalhe.
+ */
+interface ExternalRecord {
+  info: AgentInfo;
+  history: Activity[];
+  /** Último PUT (inclusive o de vida, sem mudança): EXTERNAL_TTL_MS depois disso, vira offline. */
+  lastPutAt: number;
+  /** Offline pela expiração: sai do snapshot neste instante. */
+  removeAt?: number;
+}
+
 /** O que terminou (para a atividade 'ShellDone' e o aviso). */
 export interface ShellDoneInput {
   /** Id do job (tarefa em segundo plano ou tool_use): torna a atividade idempotente numa releitura. */
@@ -199,6 +213,8 @@ const byStart = (a: ShellJob, b: ShellJob) => a.startedAt - b.startedAt || a.id.
 
 export class Office {
   private agents = new Map<string, AgentRecord>();
+  /** Personagens externos, pelo id do snapshot ("external:<id>"). */
+  private externals = new Map<string, ExternalRecord>();
   private rooms = new Map<string, { path: string; createdAt: number }>();
   private slots = new SlotAllocator(SLOT_COOLDOWN_MS);
   private roomNames = new Map<string, string>();
@@ -302,6 +318,8 @@ export class Office {
   detail(id: string): AgentDetail | undefined {
     const rec = this.agents.get(id);
     if (rec) return { agent: cloneAgent(rec.info), history: rec.history.slice() };
+    const ext = this.externals.get(id);
+    if (ext) return { agent: cloneAgent(ext.info), history: ext.history.slice() };
     const demo = this.demoSnap?.agents.find((a) => a.id === id);
     return demo ? { agent: cloneAgent(demo), history: demo.recent.slice() } : undefined;
   }
@@ -795,6 +813,117 @@ export class Office {
     return true;
   }
 
+  // ---------------------------------------------------------------- personagem externo (http/external.ts)
+
+  /**
+   * PUT /api/external/agents/:key: cria ou atualiza o externo "external:<key>". O PUT descreve o estado inteiro (nome,
+   * aparência, sala, status, espera); a atividade, quando vem e é diferente da atual, vira a atual e entra no `recent`
+   * (sem ela, fica a última). Sem aviso nem feed: quem fala por ele é ele mesmo. Um PUT idêntico (o de vida) só renova
+   * a expiração, sem snapshot novo.
+   */
+  upsertExternal(key: string, p: ExternalAgentInput): 'created' | 'updated' {
+    const now = this.now();
+    const id = externalAgentId(key);
+    const roomId = EXTERNAL_ROOMS[p.room];
+    const seed = p.seed ?? hash32(id);
+    const look = p.look ?? (hash32(id) & 1 ? 'f' : 'm');
+    let rec = this.externals.get(id);
+    const created = !rec;
+    if (!rec) {
+      rec = {
+        info: {
+          id,
+          kind: 'main',
+          provider: 'external',
+          roomId,
+          name: p.name,
+          look,
+          role: tr('Personagem externo'),
+          sessionId: '',
+          account: '',
+          status: p.status,
+          recent: [],
+          tasks: [],
+          startedAt: now,
+          lastEventAt: now,
+          statusSince: now,
+          stats: zeroStats(),
+          seed,
+          canMessage: false,
+        },
+        history: [],
+        lastPutAt: now,
+      };
+      this.externals.set(id, rec);
+    }
+    const info = rec.info;
+    rec.lastPutAt = now;
+    let changed = created;
+    if (rec.removeAt !== undefined) {
+      delete rec.removeAt;
+      changed = true;
+    }
+    if (info.name !== p.name || info.look !== look || info.seed !== seed || info.roomId !== roomId) {
+      Object.assign(info, { name: p.name, look, seed, roomId });
+      changed = true;
+    }
+    if (info.status !== p.status) {
+      info.status = p.status;
+      info.statusSince = now;
+      changed = true;
+    }
+    const waitingFor = p.status === 'waiting' ? p.waitingFor : undefined;
+    if (info.waitingFor !== waitingFor) {
+      if (waitingFor) info.waitingFor = waitingFor;
+      else delete info.waitingFor;
+      changed = true;
+    }
+    if (p.activity && info.activity?.text !== p.activity) {
+      const act: Activity = { id: `${id}#say:${++this.seq}`, kind: 'respond', icon: '💬', text: p.activity, at: now };
+      info.activity = act;
+      info.recent = [...info.recent, act].slice(-RECENT_LIMIT);
+      rec.history.push(act);
+      if (rec.history.length > HISTORY_LIMIT) rec.history.splice(0, rec.history.length - HISTORY_LIMIT);
+      changed = true;
+    }
+    if (changed) {
+      info.lastEventAt = now;
+      this.markDirty();
+    }
+    return created ? 'created' : 'updated';
+  }
+
+  /** DELETE /api/external/agents/:key: sai na hora. false = não estava no escritório. */
+  removeExternal(key: string): boolean {
+    if (!this.externals.delete(externalAgentId(key))) return false;
+    this.markDirty();
+    return true;
+  }
+
+  /** `id` (do snapshot) é um personagem externo presente? */
+  isExternal(id: string): boolean {
+    return this.externals.has(id);
+  }
+
+  /** Sem PUT por EXTERNAL_TTL_MS: offline (como quem encerra a sessão) e, OFFLINE_GRACE_MS depois, fora. */
+  private expireExternals(now: number): void {
+    for (const [id, rec] of this.externals) {
+      if (rec.removeAt !== undefined) {
+        if (now >= rec.removeAt) {
+          this.externals.delete(id);
+          this.markDirty();
+        }
+        continue;
+      }
+      if (now - rec.lastPutAt < EXTERNAL_TTL_MS) continue;
+      rec.info.status = 'offline';
+      rec.info.statusSince = now;
+      delete rec.info.waitingFor;
+      rec.removeAt = now + OFFLINE_GRACE_MS;
+      this.markDirty();
+    }
+  }
+
   // ---------------------------------------------------------------- demonstração
 
   setDemo(enabled: boolean): void {
@@ -929,6 +1058,7 @@ export class Office {
         removed = true;
       }
     }
+    this.expireExternals(now);
     // festa acabou / alarme expirou: o snapshot sai sem o efeito
     if (this.effects.prune(now)) this.markDirty();
     if (removed) {
@@ -985,6 +1115,8 @@ export class Office {
       const { canMessage: _off, ...rest } = a;
       return rest;
     });
+    // Personagens externos: principais comuns no snapshot (canMessage sempre false; fora das contas e das salas).
+    const externals = [...this.externals.values()].map((r) => cloneAgent(r.info));
     const trim = (a: AgentInfo): AgentInfo => (a.recent.length > SNAPSHOT_RECENT ? { ...a, recent: a.recent.slice(-SNAPSHOT_RECENT) } : a);
     const sessions = new Map<string, number>();
     for (const a of real) if (a.kind === 'main' && a.status !== 'offline') sessions.set(a.account, (sessions.get(a.account) ?? 0) + 1);
@@ -993,7 +1125,7 @@ export class Office {
       rev: this.rev,
       serverTime: now,
       rooms,
-      agents: [...real, ...demoAgents].map(trim),
+      agents: [...real, ...externals, ...demoAgents].map(trim),
       accounts: [...this.deps.accounts(sessions), ...(this.demoSnap?.accounts ?? [])],
       ...(ptys ? { ptys: ptys.list } : {}),
       meta: {
@@ -1022,6 +1154,7 @@ export class Office {
       if (r.info.id === exceptId || (exceptSession && r.info.kind === 'main' && r.info.sessionId === exceptSession)) continue;
       used.add(r.info.name);
     }
+    for (const r of this.externals.values()) used.add(r.info.name);
     for (const a of this.demoSnap?.agents ?? []) used.add(a.name);
     for (const n of this.deps.names.reservedNames().keys()) used.add(n);
     return used;

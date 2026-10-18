@@ -131,6 +131,7 @@ pacote inteiro se aparecer qualquer campo fora da lista.
 | Coisas da máquina | Nome do computador, usuário do sistema, fuso horário. O dispositivo aparece só como "Dispositivo 1/2/3" |
 | O seu histórico | Estatísticas do Meu dia, a linha do tempo do timelapse, o histórico de sessões |
 | Agentes do modo demonstração | Ficam de fora antes de montar o pacote |
+| O personagem externo e a Gerência | O agente posto por `PUT /api/external/agents/:id` (ex.: um assistente de voz) e a sala fixa onde ele fica: o prédio mostra só os agentes do Claude Code e do Codex |
 
 ## Ao vivo, sem identificar ninguém
 

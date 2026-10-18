@@ -1662,6 +1662,12 @@ export const ES: Readonly<Record<string, string>> = {
   "abra o Habblaud por http://localhost para usar o terminal interativo": "abre Habblaud en http://localhost para usar la terminal interactiva",
   "origem não permitida para o terminal interativo": "origen no permitido para la terminal interactiva",
 
+  // server/http/external.ts, server/model/office.ts e shared/external.ts (personagem externo)
+  "o personagem externo só é atualizado pelo próprio computador (http://localhost)": "el personaje externo solo se actualiza desde el propio equipo (http://localhost)",
+  "esperado {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting ou idle, activity?: até {1} caracteres, waitingFor?: até {2} caracteres, seed?: inteiro de 0 a 4294967295, look?: f ou m}": "se esperaba {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting o idle, activity?: hasta {1} caracteres, waitingFor?: hasta {2} caracteres, seed?: entero de 0 a 4294967295, look?: f o m}",
+  "Personagem externo": "Personaje externo",
+  "Gerência": "Gerencia",
+
   // server/http/sessions.ts
   "Histórico de sessões: falha ao listar ({0}).": "Historial de sesiones: error al listar ({0}).",
   "não foi possível listar as sessões": "no se pudieron listar las sesiones",

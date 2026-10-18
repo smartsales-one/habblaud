@@ -243,3 +243,18 @@ describe('DayStatsService: modo demonstração', () => {
     }
   });
 });
+
+describe('DayStatsService: personagem externo', () => {
+  it('o externo (provider external) não entra no "Meu dia"', () => {
+    const env = setup(null);
+    const svc = env.make();
+    const real = agent({ id: '.claude:1' });
+    const ext = agent({ id: 'external:claudio', provider: 'external', roomId: 'core:gerencia', account: '', sessionId: '', name: 'Claudio', status: 'working' });
+    env.set(snapOf([real, ext]));
+    svc.sample();
+    env.run(svc, T0 + 20 * S);
+    const r = svc.day(DAY, 'UTC', 'real')!;
+    expect(r.stats.totals.ms).toEqual({ working: 20 * S, waiting: 0, idle: 0, shell: 0 });
+    expect(r.stats.rooms.map((x) => x.id)).toEqual(['/p/loja']);
+  });
+});

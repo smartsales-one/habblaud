@@ -10,6 +10,7 @@
 import { appendFileSync, closeSync, mkdirSync, openSync, readdirSync, readSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OfficeSnapshot } from '../../shared/types';
+import { isExternalAgent } from '../../shared/external';
 import { compactSnapshot, dayKey, diffFrames, isDayKey, isDemoId, keyframeOf, shiftDay, type TimelineFrame, type TimelineRecord } from '../../shared/timeline';
 import { errMsg, log } from '../log';
 import { tr } from '../../shared/i18n';
@@ -113,10 +114,14 @@ export class TimelineRecorder {
     this.append({ t: 'end', at: now }, now);
   }
 
-  /** Snapshot novo do Office (o hub chama a cada commit com mudança). */
+  /**
+   * Snapshot novo do Office (o hub chama a cada commit com mudança). O personagem externo (shared/external.ts) não é
+   * gravado: o timelapse é o histórico dos agentes das ferramentas.
+   */
   ingest(snap: OfficeSnapshot): void {
     try {
-      this.latest = compactSnapshot(snap, this.isDemo);
+      const agents = snap.agents.some(isExternalAgent) ? snap.agents.filter((a) => !isExternalAgent(a)) : snap.agents;
+      this.latest = compactSnapshot(agents === snap.agents ? snap : { ...snap, agents }, this.isDemo);
       this.pending = true;
     } catch (err) {
       log.warnOnce(`timeline-ingest:${errMsg(err)}`, tr('Snapshot ignorado pela linha do tempo: {0}', [errMsg(err)]));

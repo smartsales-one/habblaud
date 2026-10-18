@@ -213,6 +213,26 @@ describe('projeção: regras', () => {
     expect(project(input([room('demo:/x')], [agent('demo:a', 'demo:/x')]), new FakeIds(), NOW).floors).toEqual([]);
   });
 
+  it('o personagem externo e a Gerência nunca entram (nem pedem id do mundo)', () => {
+    const ids = new FakeIds();
+    const rooms = [room('/p/real'), room('core:gerencia')];
+    const agents = [
+      agent('acc:1', '/p/real'),
+      agent('external:claudio', 'core:gerencia', { provider: 'external', name: 'Claudio', look: 'm' }),
+      // Defesa em profundidade: externo fora da Gerência, e qualquer agente na Gerência.
+      agent('external:outro', '/p/real', { provider: 'external' }),
+      agent('acc:2', 'core:gerencia'),
+    ];
+    const u = project(input(rooms, agents), ids, NOW);
+    expect(u.floors).toHaveLength(1);
+    expect(agentsOf(u)).toHaveLength(1);
+    expect(agentsOf(u)[0].provider).toBe('claude');
+    expect(ids.calls.some((c) => c.startsWith('external:') || c === 'core:gerencia' || c === 'acc:2')).toBe(false);
+    expect(JSON.stringify(u)).not.toMatch(/external|gerencia|Claudio/);
+    // Só o externo: prédio sem andares.
+    expect(project(input([room('core:gerencia')], [agents[1]]), new FakeIds(), NOW).floors).toEqual([]);
+  });
+
   it('só agentes presentes: done e offline somem, e a sala sem ninguém presente não vira andar', () => {
     const rooms = [room('/p/a'), room('/p/b'), room('/p/vazia')];
     const agents = [

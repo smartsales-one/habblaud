@@ -3,12 +3,12 @@
 //
 // Identidade visual do Codex (sem logotipo de ninguém): o chip da conta fica "vazado" (fundo escuro, borda e letra na
 // cor da conta, cantos em degrau) e, onde há espaço, um selo de texto "Codex" ao lado do nome.
-import type { AccountInfo, OfficeSnapshot, Provider } from '../../../shared/types';
+import type { AccountInfo, OfficeSnapshot, Provider, ToolProvider } from '../../../shared/types';
 import { shortcutHint } from './model';
 import { tr } from '../../../shared/i18n';
 
 /** Nome de cada ferramenta como aparece nos textos. */
-export const PROVIDER_NAME: Record<Provider, string> = { claude: 'Claude Code', codex: 'Codex' };
+export const PROVIDER_NAME: Record<ToolProvider, string> = { claude: 'Claude Code', codex: 'Codex' };
 
 /** Ferramenta de um agente, conta, sessão ou pedido (ausente = Claude Code). */
 export function providerOf(x: { provider?: Provider } | null | undefined): Provider {

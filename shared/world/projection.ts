@@ -17,7 +17,9 @@
 // DOM): recebe só os ids das salas, os agentes, o tema já resolvido, a versão, os tokens do prédio e as opções do
 // jogador, e devolve o pacote. O uplink (server/world/uplink.ts) só manda o que sai daqui.
 // - Um andar por sala com pelo menos um agente presente; um agente por principal ou subagente trabalhando, esperando,
-//   à toa ou de olho num shell. Demonstração (`demo:`) nunca entra.
+//   à toa ou de olho num shell. Demonstração (`demo:`) nunca entra. O personagem externo (provider 'external' ou id
+//   `external:`, shared/external.ts) e a sala fixa da Gerência (`core:gerencia`) também nunca entram: o prédio mostra
+//   só os agentes do Claude Code e do Codex.
 // - Ids do mundo vêm de `WorldIdSource` (aleatórios, server/world/ids.ts): nunca o id do escritório, o caminho da
 //   pasta, a conta ou o pid. Andares e agentes saem ordenados pelo id do mundo (a ordem de chegada não vaza).
 // - Nome sorteado do pool (`pickName`) pelo id do mundo, do mesmo look e sem repetir no pacote; o nome do escritório,
@@ -29,6 +31,7 @@
 // - Limites de UPLINK_LIMITS (64 andares, 64 agentes por andar, 256 no total, 64 KB): acima, corta e avisa em
 //   `truncated` (só para o log local; não vai no pacote).
 import type { AppearanceParts } from '../appearance';
+import { GERENCIA_ROOM_ID, isExternalAgent } from '../external';
 import { hash32 } from '../hash';
 import { NAME_POOL, pickName } from '../names';
 import { isDemoId } from '../timeline';
@@ -135,10 +138,10 @@ function completedTasks(a: AgentInfo): number {
 /** Monta o pacote e diz o que ficou de fora pelos limites. */
 export function projectWithReport(input: ProjectionInput, ids: WorldIdSource, now: number): ProjectionResult {
   const roomIds = new Set<string>();
-  for (const r of input.rooms) if (!isDemoId(r.id)) roomIds.add(r.id);
+  for (const r of input.rooms) if (!isDemoId(r.id) && r.id !== GERENCIA_ROOM_ID) roomIds.add(r.id);
   const byRoom = new Map<string, AgentInfo[]>();
   for (const a of input.agents) {
-    if (isDemoId(a.id) || isDemoId(a.roomId) || !roomIds.has(a.roomId)) continue;
+    if (isDemoId(a.id) || isDemoId(a.roomId) || !roomIds.has(a.roomId) || isExternalAgent(a)) continue;
     if ((a.kind !== 'main' && a.kind !== 'sub') || !isWorldStatus(a.status)) continue;
     const list = byRoom.get(a.roomId);
     if (list) list.push(a);

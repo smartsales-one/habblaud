@@ -122,6 +122,18 @@ describe('gravador da linha do tempo', () => {
     expect(frame.agents.get('.claude:1')!.shells).toBeUndefined();
   });
 
+  it('o personagem externo (provider external) não é gravado', () => {
+    const rec = recorder();
+    const ext = agent('external:claudio', { provider: 'external', roomId: 'core:gerencia', name: 'Claudio', account: '', sessionId: '' });
+    rec.ingest(snap([agent('.claude:1'), ext]));
+    now += 1_500;
+    rec.ingest(snap([agent('.claude:1'), { ...ext, status: 'waiting', waitingFor: 'Para qual projeto?' }]));
+    const recs = read();
+    expect((recs[0] as TimelineKeyframe).agents.map((a) => a.id)).toEqual(['.claude:1']);
+    expect(recs).toHaveLength(1);
+    expect(JSON.stringify(recs)).not.toContain('Claudio');
+  });
+
   it('keyframe periódico (a cada 5 min, mesmo sem mudança) e fim marcado ao parar', () => {
     const rec = recorder();
     rec.ingest(snap([agent('.claude:1')]));

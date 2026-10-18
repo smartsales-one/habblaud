@@ -19,6 +19,14 @@ do meio (0.**3**.0).
   disso, o log avisa e fica o padrão). Um caractere que a fonte bitmap não tem faz o nome aparecer como texto; nome
   longo demais para a chapa vai escrito na placa comum. Na barra, um nome mais largo que o "Habblaud" some só quando
   a barra não caberia numa linha com ele (e volta quando cabe). O Habblaud World continua com esse nome.
+- **Personagem externo pela rota local `/api/external/agents/:id`.** Um programa do próprio computador (como um
+  assistente de voz) põe um personagem no escritório com `PUT` (`name` de 1 a 30 caracteres, `room: "gerencia"`,
+  `status` `working`, `waiting` ou `idle`, `activity` de até 120 caracteres, `waitingFor`, `seed` e `look`
+  opcionais) e o tira com `DELETE`; sem `PUT` por 90 s, ele fica offline e sai. Ele aparece como um agente principal
+  na Gerência (a sala é desenhada à parte), com a atividade e o histórico como os outros, e quando espera conta em
+  "precisam de você"; não recebe mensagens nem tem terminal. A rota tem a mesma trava do terminal interativo (só
+  pelo próprio computador, com Host local e da mesma origem; nunca pela porta do celular), e o personagem nunca vai
+  ao Habblaud World, à linha do tempo do timelapse nem ao "Meu dia".
 
 ## [1.0.3] - 2026-10-16
 

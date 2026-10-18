@@ -2203,6 +2203,12 @@ export const FR: Readonly<Record<string, string>> = {
   "abra o Habblaud por http://localhost para usar o terminal interativo": "ouvrez Habblaud via http://localhost pour utiliser le terminal interactif",
   "origem não permitida para o terminal interativo": "origine non autorisée pour le terminal interactif",
 
+  // server/http/external.ts, server/model/office.ts e shared/external.ts (personagem externo)
+  "o personagem externo só é atualizado pelo próprio computador (http://localhost)": "le personnage externe ne peut être mis à jour que depuis l'ordinateur lui-même (http://localhost)",
+  "esperado {name: texto de 1 a {0} caracteres, room: \"gerencia\", status: working, waiting ou idle, activity?: até {1} caracteres, waitingFor?: até {2} caracteres, seed?: inteiro de 0 a 4294967295, look?: f ou m}": "attendu {name: texte de 1 à {0} caractères, room: \"gerencia\", status: working, waiting ou idle, activity?: jusqu'à {1} caractères, waitingFor?: jusqu'à {2} caractères, seed?: entier de 0 à 4294967295, look?: f ou m}",
+  "Personagem externo": "Personnage externe",
+  "Gerência": "Direction",
+
   // server/index.ts
   "desligado por HABBLAUD_PTY={0}": "désactivé par HABBLAUD_PTY={0}",
   "desligado (ligue com HABBLAUD_PTY=1)": "désactivé (activez-le avec HABBLAUD_PTY=1)",

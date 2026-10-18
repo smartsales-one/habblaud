@@ -46,6 +46,7 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync }
 import { dirname } from 'node:path';
 import { dayKeyOf, systemTimeZone } from '../../shared/daystats';
 import { tr } from '../../shared/i18n';
+import { isExternalAgent } from '../../shared/external';
 import { isDemoId } from '../../shared/timeline';
 import type { AgentInfo } from '../../shared/types';
 import type { WorldBuildingMeta, WorldBuildingStatus, WorldBuildingStop, WorldLastUplink, WorldUplinkAck } from '../../shared/world/api';
@@ -699,9 +700,12 @@ export class BuildingUplink {
     this.signals.observe(this.realAgents(), this.now());
   }
 
-  /** Os agentes do escritório que podem subir (os do modo demonstração nunca). */
+  /**
+   * Os agentes do escritório que podem subir: os do modo demonstração e o personagem externo (shared/external.ts) nunca
+   * (o Office já o deixa fora de list(); conferido de novo aqui e na projeção).
+   */
   private realAgents(): AgentInfo[] {
-    return this.o.agents().filter((a) => !isDemoId(a.id));
+    return this.o.agents().filter((a) => !isDemoId(a.id) && !isExternalAgent(a));
   }
 
   /** Mudou algo: projeta depois de `debounceMs` desde a primeira mudança (sem reiniciar a espera), respeitando `minGapMs`. */

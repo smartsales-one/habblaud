@@ -13,9 +13,14 @@ export type AgentKind = 'main' | 'sub';
  * De qual ferramenta vem o agente (ou a conta, a fonte, a sessão, o pedido). Nos tipos do protocolo o campo
  * `provider` é opcional e AUSENTE quer dizer 'claude' (tudo o que existia antes do Codex continua igual).
  * - claude: Claude Code;
- * - codex: OpenAI Codex (CLI `codex` e o app desktop, que gravam no mesmo CODEX_HOME).
+ * - codex: OpenAI Codex (CLI `codex` e o app desktop, que gravam no mesmo CODEX_HOME);
+ * - external: personagem externo (PUT /api/external/agents/:id, ver shared/external.ts). Só existe em AgentInfo:
+ *   sem conta, sessão, terminal nem transcript, e nunca vai ao Habblaud World nem à linha do tempo.
  */
-export type Provider = 'claude' | 'codex';
+export type Provider = 'claude' | 'codex' | 'external';
+
+/** As ferramentas de verdade (contas, aliases, sessões e o Habblaud World): Provider sem o personagem externo. */
+export type ToolProvider = Exclude<Provider, 'external'>;
 
 /**
  * Estado de alto nível de um agente — é o que dirige o comportamento do personagem.

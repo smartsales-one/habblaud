@@ -901,6 +901,7 @@ mod/      o mod do Habblaud e os plugins de permissões e de mensagens (plugins 
 | `/api/permissions…` | Answering from the office: the permission hook registers the request (permission or question) and waits; the page fetches the details and decides or answers. Local access only. |
 | `/api/messages…` and `/api/mod/inbox…` | Sending messages: the page puts the message in the queue and follows its delivery; the `habblaud-mensagens` plugin fetches it, delivers it to the session and confirms. Local access only. |
 | `POST /api/codex/events` | Events from the Codex hooks (session opened, tool, approval, end of turn). Local access only. |
+| `PUT\|DELETE /api/external/agents/:id` | External character (e.g. a voice assistant) in the Management room: `{name, room: "gerencia", status: "working" \| "waiting" \| "idle", activity?, waitingFor?, seed?, look?}`; with no PUT for 90 s, it leaves. Only from the computer itself (the terminal lock) and never sent to Habblaud World. |
 | `/api/codex/bridge/poll` and `/ack` | `npm run codex:bridge` fetches the messages for Codex and confirms delivery. Local access only. |
 
 More server details in [`server/README.md`](server/README.md).

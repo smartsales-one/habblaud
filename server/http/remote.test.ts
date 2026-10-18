@@ -322,9 +322,13 @@ describe('porta remota', () => {
       ['POST', '/api/codex/events'],
       ['POST', '/api/host/files/poll'],
       ['POST', '/api/host/spawn/poll'],
+      ['PUT', '/api/external/agents/claudio'],
+      ['DELETE', '/api/external/agents/claudio'],
     ];
     for (const [method, path] of blocked) {
-      const r = await request(s.remoteBase, path, { method, headers, ...(method === 'POST' ? { body: {} } : {}) });
+      // DELETE vai sem corpo (o Node não manda Content-Length nele), mas com o Content-Type que a borda exige.
+      const opts = method === 'DELETE' ? { headers: { ...headers, 'Content-Type': 'application/json' } } : method === 'GET' ? { headers } : { headers, body: {} };
+      const r = await request(s.remoteBase, path, { method, ...opts });
       expect(r.status, `${method} ${path}`).toBe(403);
     }
     expect(s.permissionCalls).toEqual([]);
@@ -338,6 +342,8 @@ describe('porta remota', () => {
     // Na porta local, o hook e o terminal interativo seguem como antes.
     expect((await request(s.localBase, '/api/permissions', { method: 'POST', body: {} })).status).toBe(200);
     expect((await request(s.localBase, '/api/pty')).status).toBe(200);
+    const ext = { name: 'Claudio', room: 'gerencia', status: 'idle' };
+    expect((await request(s.localBase, '/api/external/agents/claudio', { method: 'PUT', body: ext })).status).toBe(200);
   });
 
   it('Habblaud World: nenhuma rota pela porta do celular, nem logado com tudo liberado e Host imitando localhost', async () => {

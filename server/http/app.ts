@@ -4,6 +4,8 @@ import { NAME_MAX, parseAppearanceParts, parseCharacterName, parseSeed } from '.
 import type { AccessInfo, AgentInfo, ModSummary, OfficeSnapshot, SourceInfo, UpdateStatus } from '../../shared/types';
 import type { AccountsService } from '../accounts/service';
 import { handleCodexEvent } from '../codex/http';
+import { externalRoomName } from '../../shared/external';
+import { handleExternalRoute } from './external';
 import type { DayStatsService } from '../history/daystats';
 import type { Office } from '../model/office';
 import type { CodexLive } from '../sources/codex/live';
@@ -125,7 +127,9 @@ function isLocalOnlyPath(path: string): boolean {
     path === '/api/mod/inbox' ||
     path === '/api/mod/inbox/ack' ||
     path.startsWith('/api/codex/') ||
-    path.startsWith('/api/host/')
+    path.startsWith('/api/host/') ||
+    path === '/api/external' ||
+    path.startsWith('/api/external/')
   );
 }
 
@@ -250,7 +254,7 @@ export function modSummary(
     .map((a) => ({
       id: a.id,
       name: a.name,
-      room: rooms.get(a.roomId) ?? a.roomId,
+      room: rooms.get(a.roomId) ?? externalRoomName(a.roomId) ?? a.roomId,
       account: a.account,
       waitingFor: a.waitingFor ?? tr('responder no terminal'),
       since: a.statusSince,
@@ -409,7 +413,8 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
       if (!isRead) methodNotAllowed(res, 'GET');
       else {
         const own = { account: url.searchParams.get('account') || undefined, session: url.searchParams.get('session') || undefined };
-        sendJson(res, 200, modSummary(hub.current(), (id) => office.has(id), deps.version, own));
+        // O personagem externo conta como de verdade (quem espera por você espera de verdade).
+        sendJson(res, 200, modSummary(hub.current(), (id) => office.has(id) || office.isExternal(id), deps.version, own));
       }
       return true;
     }
@@ -477,6 +482,15 @@ export function createApiHandler(deps: ApiDeps): (req: IncomingMessage, res: Ser
         }
         handleCharacter(req, res, id, method).catch((err) => fail(res, err));
       }
+      return true;
+    }
+    if (path === '/api/external' || path.startsWith('/api/external/')) {
+      // Personagem externo (http/external.ts): a trava do terminal interativo, e nunca pela porta remota (já recusada
+      // acima, em isLocalOnlyPath; conferido de novo aqui).
+      if (isRemote(req)) {
+        req.resume();
+        sendJson(res, 403, { error: tr('rota só do próprio computador (hooks, plugins e o auxiliar do host)') });
+      } else handleExternalRoute(req, res, path, office).catch((err) => fail(res, err));
       return true;
     }
     if (path === '/api/codex/events') {

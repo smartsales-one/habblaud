@@ -77,6 +77,11 @@ describe('computeCounters', () => {
   it('waitingAgents ordena por quem espera há mais tempo', () => {
     expect(waitingAgents(agents).map((a) => a.id)).toEqual(['ana', 'marina']);
   });
+  it('o personagem externo esperando conta em "precisam de você" (a Gerência não conta como sala)', () => {
+    const ext = agent({ id: 'external:claudio', name: 'Claudio', roomId: 'core:gerencia', provider: 'external', account: '', sessionId: '', status: 'waiting', statusSince: 10, waitingFor: 'Para qual projeto?' });
+    expect(computeCounters({ rooms, agents: [...agents, ext] })).toEqual({ rooms: 3, agents: 7, working: 3, subagents: 2, waiting: 3, shells: 0 });
+    expect(waitingAgents([...agents, ext]).map((a) => a.id)).toEqual(['external:claudio', 'ana', 'marina']);
+  });
 });
 
 describe('groupRooms', () => {

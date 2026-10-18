@@ -311,6 +311,34 @@ describe('simulação do escritório', () => {
     }
   });
 
+  it('personagem externo numa sala que o cliente ainda não desenha (core:gerencia): nada quebra', () => {
+    for (const first of [true, false]) {
+      const sim = newSim();
+      const clock = { now: T0 };
+      const ext = (status: AgentInfo['status'], extra: Partial<AgentInfo> = {}) =>
+        agent('external:claudio', 'core:gerencia', status, { provider: 'external', account: '', sessionId: '', name: 'Claudio', ...extra });
+      const rooms = [room('/a', 0)];
+      if (!first) sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working')]), clock.now);
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), ext('working')], 2), clock.now);
+      run(sim, clock, 10);
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), ext('waiting', { waitingFor: 'Para qual projeto?' })], 3), clock.now);
+      run(sim, clock, 5);
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), ext('idle')], 4), clock.now);
+      run(sim, clock, 20);
+      const ch = sim.chars.get('external:claudio')!;
+      expect(ch, `first=${first}`).toBeDefined();
+      expect(ch.gone).toBe(false);
+      expect(Number.isFinite(ch.x) && Number.isFinite(ch.y)).toBe(true);
+      expect(sim.rooms.has('core:gerencia')).toBe(false);
+      // saiu (offline e depois some do snapshot)
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), ext('offline')], 5), clock.now);
+      run(sim, clock, 5);
+      sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working')], 6), clock.now);
+      run(sim, clock, 60);
+      expect(sim.chars.get('ana')).toBeDefined();
+    }
+  });
+
   it('sala lotada: quem sobra trabalha em pé DENTRO da sala (não fica rodando na recepção)', () => {
     const sim = newSim();
     const clock = { now: T0 };

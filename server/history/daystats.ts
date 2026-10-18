@@ -26,6 +26,7 @@ import {
   type StatsView,
 } from '../../shared/daystats';
 import { seedDemoHistory } from '../../shared/demo/daystats';
+import { isExternalAgent } from '../../shared/external';
 import { errMsg, log } from '../log';
 import { tr } from '../../shared/i18n';
 
@@ -107,7 +108,12 @@ export class DayStatsService {
     const realAgents: AgentInfo[] = [];
     const demoAgents: AgentInfo[] = [];
     // Demo = id e conta com o prefixo do simulador (uma pasta de conta chamada "demo" não vira demo).
-    for (const a of snap.agents) (a.id.startsWith(DEMO_ID_PREFIX) && a.account.startsWith(DEMO_ID_PREFIX) ? demoAgents : realAgents).push(a);
+    for (const a of snap.agents) {
+      // O personagem externo (shared/external.ts) não é agente de ferramenta: fica fora do "Meu dia" (e dos tokens do
+      // prédio no Habblaud World, que saem daqui).
+      if (isExternalAgent(a)) continue;
+      (a.id.startsWith(DEMO_ID_PREFIX) && a.account.startsWith(DEMO_ID_PREFIX) ? demoAgents : realAgents).push(a);
+    }
     const real: StatsView = { agents: realAgents, rooms: snap.rooms, accounts: snap.accounts };
     const demo: StatsView = { agents: demoAgents, rooms: snap.rooms, accounts: snap.accounts };
     this.tracker.observe(real, now);

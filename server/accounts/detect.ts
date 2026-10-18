@@ -10,7 +10,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
-import type { Provider } from '../../shared/types';
+import type { Provider, ToolProvider } from '../../shared/types';
 import { tr } from '../../shared/i18n';
 
 export interface DetectedAccount {
@@ -210,7 +210,7 @@ function scanClaudeDirs(env: NodeJS.ProcessEnv, home: string): { dirs: string[];
 
 const ALIAS_RE = /^\s*alias\s+([A-Za-z0-9_][A-Za-z0-9_.-]*)=(?:'([^']*)'|"((?:[^"\\]|\\.)*)")\s*(?:#.*)?$/;
 /** O que identifica o alias de cada ferramenta: o comando invocado e a variável com a pasta da conta. */
-const ALIAS_TOOLS: Record<Provider, { invokes: RegExp; dir: RegExp }> = {
+const ALIAS_TOOLS: Record<ToolProvider, { invokes: RegExp; dir: RegExp }> = {
   claude: {
     invokes: /(?:^|[\s;&|(])(?:[\w.~/-]*\/)?claude(?=$|[\s;&|)])/,
     dir: /\bCLAUDE_CONFIG_DIR=(?:"([^"]*)"|'([^']*)'|([^\s;&|]+))/,
@@ -225,7 +225,7 @@ const ALIAS_TOOLS: Record<Provider, { invokes: RegExp; dir: RegExp }> = {
  * Extrai os aliases de shell que invocam a ferramenta (`claude` ou `codex`), com a pasta da conta (CLAUDE_CONFIG_DIR
  * ou CODEX_HOME). Considera SOMENTE linhas `alias NOME='...'` (ou com aspas duplas); qualquer outra linha é ignorada.
  */
-export function parseToolAliases(text: string, home: string, tool: Provider): ClaudeAlias[] {
+export function parseToolAliases(text: string, home: string, tool: ToolProvider): ClaudeAlias[] {
   const { invokes, dir: dirRe } = ALIAS_TOOLS[tool];
   const out: ClaudeAlias[] = [];
   for (const line of text.split(/\r?\n/)) {
@@ -246,7 +246,7 @@ export function parseClaudeAliases(text: string, home: string): ClaudeAlias[] {
 }
 
 /** Lê os aliases da ferramenta (padrão: o `claude`) dos arquivos de inicialização do shell do usuário. */
-export function readShellAliases(home: string, tool: Provider = 'claude'): ClaudeAlias[] {
+export function readShellAliases(home: string, tool: ToolProvider = 'claude'): ClaudeAlias[] {
   const out: ClaudeAlias[] = [];
   for (const f of RC_FILES) {
     try {

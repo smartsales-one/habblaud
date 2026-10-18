@@ -236,6 +236,17 @@ describe('BuildingUplink: conexão e remessas', () => {
     expect(h.changes.n).toBeGreaterThan(0);
   });
 
+  it('o personagem externo e a Gerência não sobem', async () => {
+    const h = await start({ start: false });
+    h.agents = [...h.agents, agent('external:claudio', 'core:gerencia', { provider: 'external', name: 'Claudio', status: 'waiting' })];
+    h.uplink.start();
+    await waitFor(() => h.world.ws.uplinks.length === 1, 'primeira remessa');
+    const { uplink } = h.world.ws.uplinks[0];
+    expect(uplink.floors).toHaveLength(2);
+    expect(agentsOf(uplink)).toHaveLength(3);
+    for (const leak of ['external', 'gerencia', 'Claudio']) expect(JSON.stringify(uplink), leak).not.toContain(leak);
+  });
+
   it('última remessa em disco: modo 600, sem token, relida só na mesma sessão', async () => {
     const h = await start();
     await waitFor(() => !!h.uplink.lastUplink()?.ack, 'ack');
