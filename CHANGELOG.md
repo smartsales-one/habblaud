@@ -17,8 +17,8 @@ do meio (0.**3**.0).
   continua a de sempre), no título da aba e no nome do app na Tela de Início desde o carregamento, nas notificações do
   navegador e no texto para leitor de tela da marca. Padrão "Habblaud"; até 40 caracteres e sem quebra de linha (fora
   disso, o log avisa e fica o padrão). Um caractere que a fonte bitmap não tem faz o nome aparecer como texto; nome
-  longo demais para a chapa vai escrito na placa comum. Na barra, um nome mais largo some mais cedo nas janelas
-  estreitas. O Habblaud World continua com esse nome.
+  longo demais para a chapa vai escrito na placa comum. Na barra, um nome mais largo que o "Habblaud" some só quando
+  a barra não caberia numa linha com ele (e volta quando cabe). O Habblaud World continua com esse nome.
 
 ## [1.0.3] - 2026-10-16
 

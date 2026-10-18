@@ -196,16 +196,6 @@ export function wordmarkRows(name: string, split = wordmarkSplit(name)): string[
 }
 
 /**
- * Larguras (px de tela) do logotipo na barra que mudam quando o nome some (styles.css, bloco "responsivo"): até 150 o
- * de sempre (o "Habblaud" tem 135); até 255 `wide` (os cortes sobem 120 px: "SmartSales Corp." tem 252); acima, `xwide`
- * (sobem 165 px: o máximo é 300). O nome em texto (fonte que não desenha) conta como TEXT_WORDMARK_MAX_W.
- */
-export const TEXT_WORDMARK_MAX_W = 300;
-export function wordmarkTier(widthPx: number): 'normal' | 'wide' | 'xwide' {
-  return widthPx <= 150 ? 'normal' : widthPx <= 255 ? 'wide' : 'xwide';
-}
-
-/**
  * Escala inteira do logotipo: a maior até `preferred` em que `width` pixels da fonte cabem em `maxPx` px de tela (e
  * `height` em `maxH`, quando dados; inteira para ficar nítido); no mínimo 1.
  */

@@ -231,6 +231,11 @@ export class UsageCards {
     }
   }
 
+  /** Refaz a conta de cabem-ou-não (a barra mudou: ex. o nome do escritório apareceu ou sumiu, ui/topbar.ts). */
+  refit(): void {
+    this.fit();
+  }
+
   /** Contas da última medida em fit() (ver render). */
   private fitKey = '';
 

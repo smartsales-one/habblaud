@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import PIXELART_PY from '../../../scripts/assets/pixelart.py?raw';
-import { ACCENTED, ACCENTS, canDraw, GLYPHS, glyphOf, TEXT_WORDMARK_MAX_W, textWidth, wordmarkRows, wordmarkScale, wordmarkSplit, wordmarkTier } from './pixel-font';
+import { ACCENTED, ACCENTS, canDraw, GLYPHS, glyphOf, textWidth, wordmarkRows, wordmarkScale, wordmarkSplit } from './pixel-font';
 
 /** Linhas de um bloco `NOME: ... = {` ... `}` do pixelart.py. */
 function pythonBlock(src: string[], name: string): string[] {
@@ -125,15 +125,5 @@ describe('fonte bitmap da marca', () => {
     expect(wordmarkScale(84, 3, 300, 10, 30)).toBe(3);
     expect(wordmarkScale(84, 3, 300, 11, 30)).toBe(2);
     expect(wordmarkScale(84, 5, 400, 10, 50)).toBe(4);
-  });
-
-  it('faixas de largura que adiantam o corte do nome na barra', () => {
-    expect(wordmarkTier(135)).toBe('normal');
-    expect(wordmarkTier(150)).toBe('normal');
-    expect(wordmarkTier(252)).toBe('wide');
-    expect(wordmarkTier(255)).toBe('wide');
-    expect(wordmarkTier(256)).toBe('xwide');
-    expect(wordmarkTier(TEXT_WORDMARK_MAX_W)).toBe('xwide');
-    expect(84 * wordmarkScale(84, 3, 300, 10, 30)).toBe(252);
   });
 });

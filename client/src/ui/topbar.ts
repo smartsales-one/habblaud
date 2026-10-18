@@ -13,6 +13,8 @@ import { VersionChip } from './version';
 import { setWordmark, wordmark } from './widgets';
 import { tr } from '../../../shared/i18n';
 import { officeNameFor } from './office-name';
+import { brandNameShown } from './brand-fit';
+import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 
 interface CounterRefs {
   el: HTMLElement;
@@ -39,6 +41,9 @@ export class TopBar implements UiComponent {
   private status: HTMLElement;
   /** Logotipo com o nome do escritório (meta.officeName do snapshot ao vivo). */
   private brandName: HTMLElement;
+  private brandLeft!: HTMLElement;
+  /** O que mexe na largura da barra desde a última medida do nome (ver fitBrand). */
+  private brandFitKey = '';
   private counters = new Map<keyof Counters, CounterRefs>();
   private shellsBtn: HTMLButtonElement;
   /** Próximo agente do botão de shells (cliques seguidos passam por todos, do que espera há mais tempo). */
@@ -141,24 +146,63 @@ export class TopBar implements UiComponent {
     this.panelGroup = panelGroup;
     this.brandName = wordmark();
 
+    this.brandLeft = h(
+      'div',
+      { class: 'ui-topbar__left' },
+      this.sidebarBtn,
+      h(
+        'div',
+        { class: 'ui-brand' },
+        mark,
+        h('div', { class: 'ui-brand__text' }, this.brandName, this.status),
+      ),
+    );
     this.el = h(
       'header',
       { class: 'ui-topbar', role: 'banner' },
-      h(
-        'div',
-        { class: 'ui-topbar__left' },
-        this.sidebarBtn,
-        h(
-          'div',
-          { class: 'ui-brand' },
-          mark,
-          h('div', { class: 'ui-brand__text' }, this.brandName, this.status),
-        ),
-      ),
+      this.brandLeft,
       counterWrap,
       this.usage.el,
       h('div', { class: 'ui-topbar__right' }, viewGroup, panelGroup),
     );
+    // Depois do observador dos cartões (UsageCards): a largura mudou, mede de novo se o nome cabe (fitBrand).
+    if (typeof ResizeObserver === 'function') new ResizeObserver(() => this.fitBrand()).observe(ctx.root);
+  }
+
+  /**
+   * Nome do escritório diferente do "Habblaud": some (`is-name-off`) quando a barra não caberia numa linha com ele e
+   * volta quando cabe (brand-fit.ts, com folga). O "Habblaud" fica só com os cortes fixos do styles.css. Se o nome
+   * aparece ou some, os cartões de uso refazem a conta da segunda linha.
+   */
+  private fitBrand(): void {
+    const el = this.brandName;
+    const wasOff = el.classList.contains('is-name-off');
+    const apply = (off: boolean) => {
+      if (off === wasOff) return;
+      el.classList.toggle('is-name-off', off);
+      this.usage.refit();
+    };
+    // abaixo de 1041 px o CSS já esconde o nome (e a linha de status vira um selo no logotipo)
+    if (el.dataset.name === DEFAULT_OFFICE_NAME || !this.el.isConnected || window.matchMedia('(max-width: 1040px)').matches) return apply(false);
+    const bar = this.el;
+    const barStyle = getComputedStyle(bar);
+    const px = (v: string) => Number.parseFloat(v) || 0;
+    // largura natural (scrollWidth): na linha única os itens encolhem (mesma conta do UsageCards.fit)
+    const natural = (c: Element) => Math.max((c as HTMLElement).offsetWidth, c.scrollWidth);
+    const text = el.parentElement!;
+    const usage = this.usage.el;
+    const shown = brandNameShown({
+      barWidth: bar.clientWidth - px(barStyle.paddingLeft) - px(barStyle.paddingRight),
+      gap: px(barStyle.columnGap),
+      others: [...bar.children].filter((c) => c !== this.brandLeft && c !== usage && getComputedStyle(c).display !== 'none').map(natural),
+      left: natural(this.brandLeft) - natural(text),
+      status: natural(this.status),
+      name: Number(el.dataset.width) || 0,
+      cards: [...usage.children].filter((c) => getComputedStyle(c).display !== 'none').map((c) => px(getComputedStyle(c).minWidth)),
+      cardGap: px(getComputedStyle(usage).columnGap),
+      shown: !wasOff,
+    });
+    apply(!shown);
   }
 
   /** Acrescenta um selo à linha de status da marca, depois da versão (ex.: o chip do Habblaud World). */
@@ -227,6 +271,23 @@ export class TopBar implements UiComponent {
     this.usage.render();
     this.version.render();
     setHidden(this.spawnBtn, !access().spawn || store.mock || store.replaying);
+    // O nome cabe? Mede só quando muda algo que mexe na largura da barra (medir força o layout; o render roda a cada
+    // quadro no replay): o nome, as contas, os contadores, a conexão e os botões que aparecem e somem.
+    const fitKey = [
+      this.brandName.dataset.name,
+      (snap?.accounts ?? []).map((a) => a.id).join(','),
+      [...this.counters.values()].map((r) => `${r.el.hidden ? '-' : ''}${r.value.textContent}${r.label.textContent}`).join(','),
+      this.pillText.textContent,
+      this.demoBadge.hidden,
+      this.spawnBtn.hidden,
+      this.timelapseBtn.hidden,
+      this.worldBtn.hidden,
+      this.status.childElementCount,
+    ].join('|');
+    if (fitKey !== this.brandFitKey) {
+      this.brandFitKey = fitKey;
+      this.fitBrand();
+    }
 
     this.sidebarBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('sidebar')));
     this.feedBtn.setAttribute('aria-pressed', String(this.ctx.isPanelOpen('feed')));

@@ -4,7 +4,7 @@ import type { AccountInfo, Activity, AgentInfo, AgentStatus, Provider } from '..
 import { h, setAttr, setHidden, setStyleVar, setText, setTitle, setVariant } from './dom';
 import { wordmarkSvg } from './icons';
 import { shellDoneKind, shellLine, shellStage, statusLabel, type ShellWait } from './model';
-import { TEXT_WORDMARK_MAX_W, wordmarkRows, wordmarkScale, wordmarkTier } from '../art/pixel-font';
+import { wordmarkRows, wordmarkScale } from '../art/pixel-font';
 import { DEFAULT_OFFICE_NAME } from '../../../shared/office-name';
 import { accountChipLabel, accountProvider, fallbackShort, showsProviderTag } from './provider';
 import { tr } from '../../../shared/i18n';
@@ -156,14 +156,14 @@ export function wordmark(cls = 'ui-brand__name', name = DEFAULT_OFFICE_NAME, siz
 
 /**
  * Redesenha o logotipo com `name` (nada a fazer se é o mesmo). Um caractere que a fonte bitmap não tem (nem sem o
- * acento) faz o nome aparecer como texto, na fonte pixelada da interface (até 300 px). As classes `is-wide` e
- * `is-xwide` (wordmarkTier) fazem o CSS esconder o nome mais cedo na barra quando ele é mais largo que o "Habblaud".
+ * acento) faz o nome aparecer como texto, na fonte pixelada da interface (até `size.maxPx`). A largura desenhada fica
+ * em `data-width` (px; a do texto conta como `size.maxPx`): a barra do topo decide com ela se o nome cabe (brand-fit.ts).
  */
 export function setWordmark(el: HTMLElement, name: string, size: WordmarkSize = TOPBAR_WORDMARK): void {
   if (el.dataset.name === name) return;
   el.dataset.name = name;
   const rows = wordmarkRows(name);
-  let width = TEXT_WORDMARK_MAX_W;
+  let width = size.maxPx;
   if (!rows) {
     el.replaceChildren(h('span', { class: 'ui-wordmark-text', text: name }));
   } else {
@@ -172,7 +172,5 @@ export function setWordmark(el: HTMLElement, name: string, size: WordmarkSize = 
     el.innerHTML = wordmarkSvg(rows, scale);
     el.append(h('span', { class: 'ui-sr', text: name }));
   }
-  const tier = wordmarkTier(width);
-  el.classList.toggle('is-wide', tier !== 'normal');
-  el.classList.toggle('is-xwide', tier === 'xwide');
+  el.dataset.width = String(width);
 }
