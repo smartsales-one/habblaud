@@ -5,6 +5,8 @@ import { roomTheme } from '../art';
 import { createAvatarPlaceholder, updateAvatar } from './avatar';
 import { CharacterEditor } from './character-editor';
 import { MessageComposer } from './composer';
+import { agentDrawerParts } from './external';
+import { externalRoomName, externalWaitingFallback } from '../../../shared/external';
 import type { UiComponent, UiContext } from './context';
 import { copyText, h, iconButton, KeyedList, setAttr, setHidden, setStyleVar, setText, setTitle, setVariant } from './dom';
 import {
@@ -205,6 +207,10 @@ class AgentView {
   private accName: HTMLElement;
   private accProv: HTMLElement;
   private accEmail: HTMLElement;
+  /** Linha da conta (o personagem externo não tem conta: some). */
+  private accRow: HTMLElement;
+  /** Estatísticas da sessão (o personagem externo não tem sessão: some). */
+  private statsSec: ReturnType<typeof section>;
   /** Dica dos hooks do Codex (ao vivo e aprovar pelo escritório), na gaveta de um agente do Codex. */
   private codexHint: HTMLElement;
   private roomBtn: HTMLButtonElement;
@@ -281,11 +287,12 @@ class AgentView {
     this.roomName = h('span');
     this.roomBtn = h('button', { class: 'ui-room-link', type: 'button', on: { click: () => this.last && ctx.select({ type: 'room', id: this.last.roomId }, { focus: true }) } }, this.roomName);
     this.character = new CharacterEditor(ctx);
+    this.accRow = h('div', { class: 'ui-hero__acc' }, this.accChip, this.accName, this.accProv, this.accEmail);
     const heroText = h(
       'div',
       { class: 'ui-hero__text' },
       h('div', { class: 'ui-hero__line' }, this.name, this.character.button, this.role),
-      h('div', { class: 'ui-hero__acc' }, this.accChip, this.accName, this.accProv, this.accEmail),
+      this.accRow,
       h('div', { class: 'ui-hero__where' }, h('span', { class: 'ui-muted', text: tr('Sala') }), this.roomBtn),
     );
     this.gone = h('p', { class: 'ui-gone', text: tr('Este agente já saiu do escritório.'), hidden: true });
@@ -400,7 +407,7 @@ class AgentView {
       ['duration', tr('Duração')],
       ['bg', tr('Execução')],
     ]);
-    const statsSec = section(tr('Estatísticas'), this.stats.el);
+    const statsSec = (this.statsSec = section(tr('Estatísticas'), this.stats.el));
     this.codexHint = h('p', { class: 'ui-codex-hint', hidden: true }, ...richText(CODEX_LIVE_HINT));
 
     this.el = h(
@@ -493,6 +500,8 @@ class AgentView {
   /** Abre (ou fecha) o terminal deste agente; desligado sem acesso local ou depois que ele saiu. */
   toggleTerminal(): void {
     if (!this.id) return;
+    // o personagem externo não tem terminal (o botão nem aparece)
+    if (this.last && !agentDrawerParts(this.last).terminal) return;
     if (this.termBtn.getAttribute('aria-disabled') === 'true') {
       // No celular não há hover para ler a dica: o toque mostra o motivo embaixo do botão.
       const why = this.termBtn.title;
@@ -531,6 +540,8 @@ class AgentView {
     const room = this.ctx.store.room(a.roomId);
     const provider = providerOf(a);
     const codex = provider === 'codex';
+    // personagem externo: só as partes de leitura (sem terminal, mensagens, editor, conta, sessão, equipe e rodas)
+    const parts = agentDrawerParts(a);
 
     updateAvatar(this.avatar, a, 'lg');
     setStyleVar(this.avatar, '--acc', account?.color ?? '#8b98b3');
@@ -548,8 +559,10 @@ class AgentView {
     const accSub = account?.email ?? (codex && account?.plan ? tr('plano {0}', [account.plan]) : '');
     setText(this.accEmail, accSub);
     setHidden(this.accEmail, !accSub);
-    setText(this.roomName, room?.name ?? a.roomId);
-    setTitle(this.roomBtn, room ? tr('{0}\nClique para ver a sala', [room.path]) : '');
+    setHidden(this.accRow, !parts.account);
+    setText(this.roomName, externalRoomName(a.roomId) ?? room?.name ?? a.roomId);
+    setTitle(this.roomBtn, room && parts.roomLink ? tr('{0}\nClique para ver a sala', [room.path]) : '');
+    if (this.roomBtn.disabled === parts.roomLink) this.roomBtn.disabled = !parts.roomLink;
     setHidden(this.gone, !!live);
     this.el.classList.toggle('is-gone', !live);
 
@@ -566,6 +579,8 @@ class AgentView {
     setAttr(this.followBtn, 'aria-pressed', String(following));
     this.followBtn.classList.toggle('is-on', following);
     this.renderTerminalButton(!!live);
+    setHidden(this.termBtn, !parts.terminal);
+    if (!parts.terminal) setHidden(this.termWhy, true);
 
     // Alerta.
     const waiting = a.status === 'waiting' && !!live;
@@ -575,7 +590,9 @@ class AgentView {
       const accName = account?.name ?? a.account;
       // Codex: "Vá ao Codex (Conta X)"; sem repetir quando a conta já se chama "Codex".
       const where = codex ? tr('ao Codex{0}', [/codex/i.test(accName) ? '' : ` (${accName})`]) : tr('ao terminal da {0}', [accName]);
-      setText(this.alertText, tr('Vá {0} em {1} para responder{2}', [where, room?.name ?? tr('seu projeto'), a.waitingFor ? `: ${a.waitingFor}` : '.']));
+      // o externo não tem terminal: o motivo da espera, como ele mandou
+      if (!parts.terminal) setText(this.alertText, a.waitingFor ?? externalWaitingFallback());
+      else setText(this.alertText, tr('Vá {0} em {1} para responder{2}', [where, room?.name ?? tr('seu projeto'), a.waitingFor ? `: ${a.waitingFor}` : '.']));
     }
     // Perguntas do AskUserQuestion (só leitura): o Codex não pergunta pelo escritório.
     const asking = waiting && !codex && a.activity?.kind === 'ask' ? a.activity : undefined;
@@ -619,7 +636,7 @@ class AgentView {
     setHidden(this.msgSec.el, this.composer.render(live, this.id) === 'off');
 
     // Vida social (personalidade, carteira, rodas): só de quem está no escritório.
-    if (live) this.social.render(a.id, now);
+    if (live && parts.social) this.social.render(a.id, now);
     else setHidden(this.social.el, true);
 
     // Tarefas.
@@ -645,6 +662,7 @@ class AgentView {
       setHidden(this.teamEmpty, !!parent);
       this.team.sync(parent ? [parent] : []);
     }
+    setHidden(this.teamSec.el, !parts.team);
 
     // Linha do tempo (mais recente primeiro). No replay, nada depois do instante reproduzido.
     const until = this.historyUntil();
@@ -658,6 +676,7 @@ class AgentView {
     setText(this.timelineSec.extra, this.history.length ? String(this.history.length) : '');
 
     this.renderStats(a, now);
+    setHidden(this.statsSec.el, !parts.stats);
 
     // Codex: como ter o ao vivo e as aprovações por aqui (o servidor ainda não diz se os hooks dele estão ligados).
     setHidden(this.codexHint, !codex || a.kind !== 'main' || !live || this.ctx.store.replaying);

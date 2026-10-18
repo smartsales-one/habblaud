@@ -1668,6 +1668,8 @@ export const ES: Readonly<Record<string, string>> = {
   "Personagem externo": "Personaje externo",
   "Gerência": "Gerencia",
   "aguardando você": "esperándote",
+  "Este personagem não recebe mensagens pelo Habblaud": "Este personaje no recibe mensajes por Habblaud",
+  "Este personagem não tem terminal.": "Este personaje no tiene terminal.",
   "personagens externos demais: no máximo {0} ao mesmo tempo": "demasiados personajes externos: como máximo {0} a la vez",
   "já existe um agente com este id no escritório": "ya hay un agente con este id en la oficina",
   "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "personaje externo desactivado: solo funciona con Habblaud accesible únicamente desde el propio equipo",

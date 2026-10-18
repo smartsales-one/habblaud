@@ -1,13 +1,25 @@
-// Núcleo do prédio (colunas 0 e 1): recepção com elevadores, banheiros, copa e lounge.
-import type { WallStyle } from '../../art/api';
-import { COL_W, NORTH_Y, ROOM_H, SOUTH_Y, TILE } from '../constants';
+// Núcleo do prédio (colunas 0 e 1): recepção com elevadores, banheiros, copa e lounge. E a Gerência, a sala fixa do
+// personagem externo, que só existe enquanto ele está no escritório (logo depois do núcleo; ver layoutManagement).
+import type { RoomInfo } from '../../../../shared/types';
+import { GERENCIA_ROOM_ID } from '../../../../shared/external';
+import { tr } from '../../../../shared/i18n';
+import type { RoomTheme, WallStyle } from '../../art/api';
+import { COL_W, DOOR_W, DOOR_X, NORTH_Y, ROOM_H, SOUTH_Y, TILE } from '../constants';
 import { AreaBuilder, SEATED_SORT_BIAS } from './builder';
+import { slotRect } from './geometry';
 import type { AreaLayout } from './types';
 
 export const RECEPTION_ID = 'core:recepcao';
 export const RESTROOM_ID = 'core:banheiros';
 export const CAFE_ID = 'core:copa';
 export const LOUNGE_ID = 'core:lounge';
+/** A Gerência (o mesmo id que o servidor põe no `roomId` do personagem externo). */
+export const GERENCIA_ID = GERENCIA_ROOM_ID;
+/**
+ * Vaga da Gerência: a primeira (coluna logo depois do núcleo, ao norte do corredor). Enquanto ela existe, as salas de
+ * projeto começam na vaga 1 (Sim.freeSlot); sem ela, o prédio é o de sempre.
+ */
+export const GERENCIA_SLOT = 0;
 
 /** Paredes do núcleo: tons claros e neutros (frios), com acabamentos diferentes por ambiente. */
 export const CORE_WALLS = {
@@ -17,6 +29,7 @@ export const CORE_WALLS = {
   cafeSplash: { base: '#d9dcdf', trim: '#8d969e', pattern: 'marble' } satisfies WallStyle,
   lounge: { base: '#e6e2ea', trim: '#8f8aa3', pattern: 'plain' } satisfies WallStyle,
   glass: { base: '#cfe6f0', trim: '#9fb9c6', pattern: 'glass' } satisfies WallStyle,
+  gerencia: { base: '#e6dccb', trim: '#7d6043', pattern: 'wood_panel' } satisfies WallStyle,
 };
 
 /** Centros (em tiles locais) dos dois elevadores na face norte da recepção. */
@@ -244,5 +257,88 @@ export function layoutLounge(): AreaLayout {
   // torcida do ping-pong: atrás da mesa, de frente para a câmera
   b.spot('watch', 10, 5, 'down', { group: 'watch:pingpong', dx: 2 });
   b.spot('watch', 12, 5, 'down', { group: 'watch:pingpong', dx: -2 });
+  return b.build();
+}
+
+/** Tema da Gerência: tapete, contorno da seleção e móveis (o resto do desenho é o de layoutManagement). */
+export const GERENCIA_THEME: RoomTheme = {
+  carpet: '#7a3b3b',
+  carpet2: '#6a3232',
+  wall: CORE_WALLS.gerencia,
+  accent: '#b08d57',
+  deskVariant: 'dark',
+  chairVariant: 'black',
+};
+
+/** A Gerência como o mundo a conhece: ela não vem no snapshot (só o `roomId` do personagem externo aponta para ela). */
+export function managementRoomInfo(now: number): RoomInfo {
+  return { id: GERENCIA_ID, name: tr('Gerência'), path: '', slot: GERENCIA_SLOT, seed: 0x6e7e, createdAt: now };
+}
+
+/**
+ * Gerência: sala ao norte do corredor, na primeira vaga depois do núcleo, desenhada à mão como a copa e o lounge. Mesa de
+ * diretor com computador e a cadeira de frente para quem olha (o único lugar de trabalho: o do personagem externo),
+ * quadro e placa com o nome na parede, poltronas de visita, sofá com mesa de centro, estante e plantas. Sem interruptor:
+ * fica acesa enquanto existe.
+ *
+ *   linhas 0–1  parede norte: quadro, placa, relógio e janela
+ *   linhas 2–10 piso: mesa do diretor à esquerda, sofá à direita
+ *   linha 11    parede sul com a porta para o corredor (colunas 7–8)
+ */
+export function layoutManagement(): AreaLayout {
+  const rect = slotRect(GERENCIA_SLOT);
+  const b = new AreaBuilder(GERENCIA_ID, 'room', rect);
+  const wall = CORE_WALLS.gerencia;
+  b.area.side = 'north';
+  b.floor('wood', 0, 0, 16, 12, 601);
+  b.rug(3.4, 3.3, 5.2, 4.9, GERENCIA_THEME.carpet, 602);
+  b.rug(9.4, 6.6, 4.8, 3.6, '#d7c8a8', 603);
+  b.rug(DOOR_X - 0.25, 9.5, DOOR_W + 0.5, 1.25, '#6b4a3a', 604);
+
+  b.face(0.5, 15, wall);
+  b.south(0.5, 15, 11, wall, [{ lx: DOOR_X, w: DOOR_W }]);
+  b.cap(0, 0, 0.5, 12, wall);
+  b.cap(15.5, 0, 0.5, 12, wall);
+  b.walk(1, 2, 14, 9);
+  b.area.door = { x: rect.x + DOOR_X, y: rect.y + 11, w: DOOR_W, h: 1 };
+  b.walk(DOOR_X, 11, DOOR_W, 1);
+
+  // parede norte (nada alto encostado na frente do quadro, da placa ou da janela)
+  b.wall('whiteboard', 3.5, undefined, { order: 0.6 });
+  b.spot('whiteboard', 3, 2, 'up', { dy: 2 });
+  b.area.signId = b.wall('sign', 8, undefined, { order: 0.95 });
+  b.wall('clock', 10.25, undefined, { order: 0.7 });
+  b.wall('window', 12.75, undefined, { order: 0.4 });
+  b.spot('window', 12, 2, 'up', { dx: 12, dy: 1 });
+  b.furn('plant_tall', 1, 2, 'ficus', { order: 0.2 });
+  b.furn('plant_tall', 14, 2, 'palm', { order: 0.21 });
+
+  // mesa do diretor, de frente para quem olha, com o computador; arquivo e lixeira dos lados
+  const desk = b.furn('desk_back', 5, 5, GERENCIA_THEME.deskVariant, { order: 0.4, seat: 'N0' });
+  b.seat('desk', 'office_chair_front', 5, 4, 'down', GERENCIA_THEME.chairVariant, { dx: TILE / 2, deskId: desk, rank: 0, side: 'N', order: 0.55 });
+  b.furn('trash_bin', 4, 5, undefined, { order: 0.42 });
+  b.furn('filing_cabinet', 7, 5, undefined, { order: 0.44 });
+  // poltronas de visita, viradas para a mesa
+  b.seat('armchair', 'armchair', 5, 7, 'up', 'up', { order: 0.6 });
+  b.seat('armchair', 'armchair', 6, 7, 'up', 'up', { order: 0.61 });
+
+  // canto do sofá: sofá de frente para quem olha, mesa de centro e uma poltrona
+  const sofa = b.furn('sofa', 10, 7, 'down', { order: 0.5 });
+  for (let i = 0; i < 3; i++) b.seat('sofa', 'sofa', 10 + i, 7, 'down', 'down', { noFurniture: true, furnitureId: sofa });
+  b.furn('coffee_table', 10, 9, undefined, { dx: TILE / 2, order: 0.48 });
+  b.block(12, 9, 1, 1);
+  b.seat('armchair', 'armchair', 13, 9, 'left', 'left', { order: 0.56 });
+  b.furn('plant_small', 9, 7, 'flower', { order: 0.52 });
+  b.furn('floor_lamp', 14, 7, undefined, { order: 0.32 });
+
+  // estante (dá para ler um pouco), pastas e plantas nos cantos
+  b.furn('bookshelf', 1, 7, undefined, { order: 0.3 });
+  b.spot('shelf', 1, 8, 'up', { dx: 8, dy: -2 });
+  b.furn('binder_shelf', 14, 4, undefined, { order: 0.31 });
+  b.furn('plant_small', 1, 10, 'fern', { order: 0.22 });
+  b.furn('plant_tall', 14, 10, 'monstera', { order: 0.23 });
+
+  // sombra quando a luz se apaga (na saída): a mureta sul fica clara, como nas salas ao norte
+  b.area.shade = { x: rect.x * TILE, y: rect.y * TILE, w: rect.w * TILE, h: (rect.h - 1) * TILE };
   return b.build();
 }

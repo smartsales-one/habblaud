@@ -6,7 +6,8 @@ import type { ArtModule, Dir, RoomTheme } from '../../art/api';
 import type { WorldOptions } from '../api';
 import { COL_W, COMPACT_DELAY_MS, DISMANTLE_DELAY_MS, FOOT_DX, FOOT_DY, MISSING_DEBOUNCE_MS, RUN_SPEED, TILE, WALK_SPEED } from '../constants';
 import { assembleBuilding, type BuildingLayout } from '../layout/building';
-import { RECEPTION_ID } from '../layout/core';
+import { GERENCIA_ID, GERENCIA_SLOT, GERENCIA_THEME, layoutManagement, managementRoomInfo, RECEPTION_ID } from '../layout/core';
+import { isExternalAgent } from '../../../../shared/external';
 import { columnsFor, inRect } from '../layout/geometry';
 import { layoutProjectRoom } from '../layout/room';
 import type { SpotDef, SpotKind } from '../layout/types';
@@ -133,6 +134,8 @@ export class Sim {
   private moveSeq = 0;
   private shrinkPending = false;
   private nextHousekeeping = 0;
+  /** O último snapshot tem um personagem externo na Gerência: a vaga dela fica reservada (ver syncManagement). */
+  private managementWanted = false;
   /** Visita a um prédio do mundo (SimMode.visit). */
   readonly visit: boolean;
   /** Visita: o meu personagem (fora de `chars`: nem snapshot, nem vida social, nem lugar reservado). */
@@ -154,6 +157,8 @@ export class Sim {
     this.building = assembleBuilding(columnsFor([]), [], 0);
     this.finder = new PathFinder(this.building.grid);
     this.spots.setSpots(this.building.spots);
+    // A Gerência é só do personagem externo, e ele não usa nada fora dela (nem copa, nem lounge, nem as rodas).
+    this.spots.access = (s, by) => (s.areaId === GERENCIA_ID) === (by !== undefined && !!this.chars.get(by)?.external);
     for (const s of this.spots.ofKind('elevator')) this.elevators.push(new Elevator(this.elevators.length, s.id));
   }
 
@@ -172,11 +177,13 @@ export class Sim {
     this.accounts = new Map(snap.accounts.map((a) => [a.id, { short: a.short, color: a.color, name: a.name, ...(a.provider === 'codex' ? { provider: a.provider } : {}) }]));
 
     // ---- salas
+    // antes das salas de projeto: com o personagem externo, a vaga da Gerência não vai para elas (freeSlot)
+    this.managementWanted = snap.agents.some((a) => isExternalAgent(a) && a.roomId === GERENCIA_ID && a.status !== 'offline' && !this.forcedOffline.has(a.id));
     let layoutDirty = false;
     const listed = new Set<string>();
     // na ordem de chegada (slot do servidor): na carga inicial as salas ocupam as vagas 0, 1, 2... nessa ordem
     for (const r of [...snap.rooms].sort((a, b) => a.slot - b.slot)) {
-      if (this.hiddenRooms.has(r.id)) continue;
+      if (this.hiddenRooms.has(r.id) || r.id === GERENCIA_ID) continue;
       listed.add(r.id);
       const rs = this.rooms.get(r.id);
       if (!rs) {
@@ -193,11 +200,12 @@ export class Sim {
       }
     }
     for (const rs of this.rooms.values()) {
-      if (!listed.has(rs.id) && rs.listed) {
+      if (!listed.has(rs.id) && rs.listed && rs.id !== GERENCIA_ID) {
         rs.listed = false;
         rs.unlistedAt = now;
       }
     }
+    if (this.syncManagement(first, now)) layoutDirty = true;
     if (layoutDirty) this.relayout();
     this.roomFx.sync(snap.rooms, input.serverTime, now);
 
@@ -265,9 +273,47 @@ export class Sim {
     return rs;
   }
 
-  /** Menor vaga sem sala (contando as que ainda estão desmontando). */
+  /**
+   * Gerência (sala fixa do personagem externo; layout/core.ts): existe enquanto há um externo nela, sempre na vaga
+   * GERENCIA_SLOT, logo depois do núcleo. A sala de projeto que estiver ali se muda antes (moveRoom; a Gerência é
+   * construída quando o endereço antigo esvazia e é desmontado). Sem externo, ela sai da lista: apaga e é desmontada
+   * como as outras, e a vaga volta para as salas de projeto (compact). Sem interruptor: acesa enquanto existe.
+   * Retorna true quando acabou de criar a sala (o prédio precisa ser remontado).
+   */
+  private syncManagement(first: boolean, now: number): boolean {
+    const g = this.rooms.get(GERENCIA_ID);
+    if (!this.managementWanted) {
+      if (g?.listed) {
+        g.listed = false;
+        g.unlistedAt = now;
+      }
+      return false;
+    }
+    if (g) {
+      if (!g.listed) {
+        g.listed = true;
+        g.readyToDismantleAt = 0;
+        if (g.phase === 'dismantling') g.rebuild(now);
+      }
+      g.setLight(true, now);
+      return false;
+    }
+    let occupant: RoomState | undefined;
+    for (const r of this.rooms.values()) if (r.slot === GERENCIA_SLOT && r.phase !== 'gone') occupant = r;
+    if (occupant) {
+      // a sala de projeto se muda (pronta e com a sessão aberta; a que já está saindo ou se montando, espera)
+      if (!occupant.ghost && occupant.listed && occupant.phase === 'ready') this.moveRoom(occupant, this.freeSlot(), now);
+      return false;
+    }
+    const rs = new RoomState(managementRoomInfo(now), GERENCIA_THEME, layoutManagement(), first ? 'ready' : 'building', now, true, GERENCIA_SLOT);
+    this.rooms.set(GERENCIA_ID, rs);
+    return true;
+  }
+
+  /** Menor vaga sem sala (contando as que ainda estão desmontando e a da Gerência, se há um externo nela). */
   private freeSlot(): number {
     const used = new Set<number>();
+    if (this.managementWanted) used.add(GERENCIA_SLOT);
     for (const r of this.rooms.values()) if (r.phase !== 'gone') used.add(r.slot);
     let slot = 0;
     while (used.has(slot)) slot++;
@@ -636,6 +682,8 @@ export class Sim {
         dirty = true;
       }
     }
+    // o externo chegou com uma sala de projeto na vaga da Gerência: monta assim que a vaga ficar livre
+    if (this.managementWanted && !this.rooms.has(GERENCIA_ID) && this.syncManagement(false, now)) dirty = true;
     if (dirty) this.relayout();
     this.compact(now);
   }
@@ -759,7 +807,8 @@ export class Sim {
       const board: RoomState['board'] = [];
       for (const c of this.chars.values()) {
         if (c.roomId !== room.id || c.leaving) continue;
-        accs.add(c.info.account);
+        // o personagem externo não tem conta (nada de bolinha vazia na placa da Gerência)
+        if (c.info.account) accs.add(c.info.account);
         if (c.info.kind === 'main') for (const t of c.info.tasks) if (board.length < 15) board.push({ status: t.status });
       }
       room.accounts = [...accs].sort();
@@ -1204,7 +1253,7 @@ export class Sim {
     if (ch.mode === 'idle' && !this.longIdle(ch, now)) {
       if (!ch.nextOutingAt) ch.nextOutingAt = now + idleSitMs(ch.rng, this.options().liveliness);
       if (now >= ch.nextOutingAt) {
-        if (this.planOuting(ch, now)) return true;
+        if (ch.external ? this.planManagementOuting(ch) : this.planOuting(ch, now)) return true;
         ch.nextOutingAt = now + idleSitMs(ch.rng, this.options().liveliness);
       }
     }
@@ -1470,9 +1519,9 @@ export class Sim {
     return out;
   }
 
-  private randomFree(kinds: SpotKind[], ch: Character): SpotDef | null {
+  private randomFree(kinds: SpotKind[], ch: Character, filter?: (s: SpotDef) => boolean): SpotDef | null {
     const cands: SpotDef[] = [];
-    for (const k of kinds) for (const s of this.spots.ofKind(k)) if (this.spots.isFree(s.id, ch.id)) cands.push(s);
+    for (const k of kinds) for (const s of this.spots.ofKind(k)) if (this.spots.isFree(s.id, ch.id) && (!filter || filter(s))) cands.push(s);
     if (!cands.length) return null;
     return cands[Math.floor(ch.rng() * cands.length)];
   }
@@ -1631,6 +1680,46 @@ export class Sim {
     ch.queue.push(...steps);
     this.pushHome(ch, carry);
     void now;
+    return true;
+  }
+
+  /**
+   * Personagem externo à toa: anda só pela própria sala (a Gerência) — senta no sofá ou numa poltrona (às vezes no
+   * celular), confere o quadro, olha pela janela, lê na estante ou se espreguiça — e volta para a mesa.
+   */
+  private planManagementOuting(ch: Character): boolean {
+    const rng = ch.rng;
+    const here = (s: SpotDef) => s.areaId === ch.roomId;
+    const what = (['seat', 'seat', 'whiteboard', 'window', 'shelf', 'stretch'] as const)[Math.floor(rng() * 6)];
+    const spot =
+      what === 'seat'
+        ? this.randomFree(['sofa', 'armchair'], ch, here)
+        : what === 'stretch'
+          ? null
+          : this.spots.findFree(what, { by: ch.id, rng, filter: here });
+    const steps: Step[] = [];
+    if (!spot || !this.reserveTemp(ch, spot)) {
+      const home = ch.homeSpot;
+      if (!home) return false;
+      steps.push({ t: 'exit' }, { t: 'act', pose: 'stretch', ms: 2600 }, { t: 'enter', spot: home });
+      steps.push({ t: 'do', fn: () => (ch.nextOutingAt = this.now + idleSitMs(ch.rng, this.options().liveliness)) });
+      ch.queue.push(...steps);
+      return true;
+    }
+    this.pushLeave(ch, steps);
+    if (spot.seated) {
+      steps.push({ t: 'go', tx: spot.tx, ty: spot.ty }, { t: 'enter', spot: spot.id });
+      steps.push(rng() < 0.35 ? { t: 'act', pose: 'read', held: 'phone', ms: between(rng, 8000, 16000) } : { t: 'act', pose: 'sit', ms: between(rng, 8000, 20000) });
+      steps.push({ t: 'exit' });
+    } else {
+      steps.push({ t: 'go', tx: spot.tx, ty: spot.ty, fx: spot.x, fy: spot.y, dir: spot.dir });
+      if (what === 'shelf') steps.push({ t: 'act', pose: 'read', held: 'book', ms: between(rng, 5000, 9000) });
+      else if (what === 'whiteboard') steps.push({ t: 'act', pose: 'read', held: 'papers', ms: between(rng, 5000, 10000), icon: rng() < 0.3 ? 'idea' : undefined });
+      else steps.push({ t: 'act', pose: 'stand', ms: between(rng, 5000, 10000) });
+    }
+    steps.push({ t: 'do', fn: () => this.spots.release(spot.id, ch.id) });
+    ch.queue.push(...steps);
+    this.pushHome(ch, 'none');
     return true;
   }
 

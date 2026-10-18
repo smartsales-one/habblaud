@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { FURNITURE, TILE, type FurnitureKind, type RoomTheme } from '../../art/api';
-import { BUILDING_H, COL_W, CORRIDOR_Y, SOUTH_Y } from '../constants';
+import { BUILDING_H, COL_W, CORE_COLS, CORRIDOR_Y, SOUTH_Y } from '../constants';
 import { assembleBuilding, coreAreas } from './building';
-import { columnsFor, slotAt, slotColumn, slotRect, slotSide } from './geometry';
+import { columnsFor, inRect, slotAt, slotColumn, slotRect, slotSide } from './geometry';
 import { layoutProjectRoom, roomVariant } from './room';
 import { layoutExterior, slotShell } from './exterior';
-import { RECEPTION_ID } from './core';
+import { GERENCIA_SLOT, layoutManagement, RECEPTION_ID } from './core';
 import type { AreaLayout } from './types';
 
 const theme: RoomTheme = {
@@ -225,9 +225,93 @@ describe('variações das salas de projeto', () => {
   });
 });
 
+describe('Gerência (sala fixa do personagem externo)', () => {
+  const g = layoutManagement();
+  // com a Gerência na vaga 0, as salas de projeto começam na vaga 1
+  const slots = [1, 2, 3, 4];
+  const rooms = roomsFor(slots);
+  const cols = columnsFor([GERENCIA_SLOT, ...slots]);
+  const b = assembleBuilding(cols, [g, ...rooms]);
+  const reception = coreAreas().find((a) => a.id === RECEPTION_ID)!;
+  const elevator = reception.spots.find((s) => s.kind === 'elevator')!;
+  const reach = b.grid.reachableFrom(elevator.tx, elevator.ty);
+
+  it('ocupa a primeira vaga: a coluna logo depois do núcleo, ao norte do corredor', () => {
+    expect(g.id).toBe('core:gerencia');
+    expect(g.rect).toEqual(slotRect(GERENCIA_SLOT));
+    expect(g.rect).toEqual({ x: CORE_COLS * COL_W, y: 0, w: COL_W, h: 12 });
+    expect(g.side).toBe('north');
+    // não muda o núcleo nem a largura do prédio: sem salas de projeto, continua com 1 coluna de projeto
+    expect(coreAreas().map((a) => a.id)).toEqual(['core:recepcao', 'core:banheiros', 'core:copa', 'core:lounge']);
+    expect(columnsFor([GERENCIA_SLOT])).toBe(columnsFor([]));
+  });
+
+  it('mesa de diretor com computador e cadeira (o único lugar de trabalho), quadro, placa, sofá e plantas; sem interruptor', () => {
+    const desks = g.spots.filter((s) => s.kind === 'desk');
+    expect(desks).toHaveLength(1);
+    const desk = g.furniture.find((f) => f.id === desks[0].deskId)!;
+    expect(desk.kind).toBe('desk_back');
+    expect(g.furniture.some((f) => f.kind === 'office_chair_front' && f.id === desks[0].furnitureId)).toBe(true);
+    expect(desks[0].seated).toBe(true);
+    expect(g.spots.some((s) => s.kind === 'stool' || s.kind === 'nook' || s.kind === 'stand')).toBe(false);
+    expect(g.wallItems.some((w) => w.kind === 'whiteboard')).toBe(true);
+    expect(g.wallItems.some((w) => w.kind === 'sign' && w.id === g.signId)).toBe(true);
+    expect(g.furniture.some((f) => f.kind === 'sofa')).toBe(true);
+    expect(g.spots.filter((s) => s.kind === 'sofa')).toHaveLength(3);
+    expect(g.furniture.some((f) => f.kind === 'plant_tall' || f.kind === 'plant_small')).toBe(true);
+    expect(g.spots.some((s) => s.kind === 'switch')).toBe(false);
+    expect(g.wallItems.some((w) => w.kind === 'light_switch')).toBe(false);
+    expect(g.spots.every((s) => s.areaId === g.id)).toBe(true);
+  });
+
+  it('móveis dentro do piso e sem sobreposição; tudo alcançável a partir dos elevadores pela porta', () => {
+    const used = new Map<string, string>();
+    for (const f of g.furniture) {
+      const def = FURNITURE[f.kind];
+      expect(def.mount).toBe('floor');
+      for (let y = f.ty; y < f.ty + def.footprint.h; y++)
+        for (let x = f.tx; x < f.tx + def.footprint.w; x++) {
+          expect(x >= g.rect.x + 1 && x < g.rect.x + 15 && y >= g.rect.y + 2 && y < g.rect.y + 11, `${f.id} fora do piso`).toBe(true);
+          if (!def.blocks) continue;
+          expect(used.get(`${x},${y}`), `${f.id} sobre ${used.get(`${x},${y}`)}`).toBeUndefined();
+          used.set(`${x},${y}`, f.id);
+        }
+    }
+    for (const w of g.wallItems) expect(FURNITURE[w.kind].mount).toBe('wall');
+    for (const s of g.spots) {
+      expect(b.grid.walkable(s.tx, s.ty), `${s.id} sobre móvel`).toBe(true);
+      expect(reach[s.ty * b.grid.w + s.tx], `${s.id} inalcançável`).toBe(1);
+    }
+    const door = g.door!;
+    for (let x = door.x; x < door.x + door.w; x++) {
+      expect(reach[door.y * b.grid.w + x]).toBe(1);
+      // o tile do corredor logo abaixo da porta
+      expect(door.y + 1).toBe(CORRIDOR_Y);
+    }
+    const r = g.rect;
+    for (let y = r.y + 2; y < r.y + 11; y++)
+      for (let x = r.x + 1; x < r.x + 15; x++) if (b.grid.walkable(x, y)) expect(reach[y * b.grid.w + x], `tile ${x},${y} isolado`).toBe(1);
+    expect(hiddenWallItems(g)).toEqual([]);
+    const ids = b.spots.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('as salas de projeto, o corredor e a área externa são os mesmos com ou sem ela', () => {
+    // a mesma vaga dá o mesmo retângulo (a Gerência só reserva a vaga 0)
+    for (const s of [1, 2, 7]) expect(slotRect(s)).toEqual(roomsFor([s])[0].rect);
+    const without = assembleBuilding(cols, rooms);
+    expect(without.corridor).toEqual(b.corridor);
+    expect(b.rect).toEqual(without.rect);
+    expect(b.grid.w).toBe(cols * COL_W);
+    // a Gerência só soma ao que já existia: fora dela, a grade é a mesma
+    for (let y = 0; y < BUILDING_H; y++)
+      for (let x = 0; x < cols * COL_W; x++) if (!inRect(g.rect, x, y)) expect(b.grid.get(x, y), `${x},${y}`).toBe(without.grid.get(x, y));
+  });
+});
+
 describe('itens de parede', () => {
   it('quadros, janelas, TV, placas e espelhos não ficam atrás de móveis altos', () => {
-    for (const area of [...coreAreas(), ...roomsFor([0, 1, 2, 3, 4, 7])]) expect(hiddenWallItems(area), area.id).toEqual([]);
+    for (const area of [...coreAreas(), layoutManagement(), ...roomsFor([0, 1, 2, 3, 4, 7])]) expect(hiddenWallItems(area), area.id).toEqual([]);
   });
 
   it('passagens nas faces das paredes têm batente', () => {

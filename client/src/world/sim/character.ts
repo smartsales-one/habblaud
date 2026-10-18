@@ -1,5 +1,6 @@
 // Estado de um personagem: posição, pose, animação, fila de passos e marcadores visuais.
 import type { AgentInfo } from '../../../../shared/types';
+import { isExternalAgent } from '../../../../shared/external';
 import type { Appearance, Dir, HeldItem, IconName, Pose } from '../../art/api';
 import { mulberry32 } from '../../../../shared/hash';
 import { FOOT_DX, FOOT_DY, TILE } from '../constants';
@@ -128,6 +129,11 @@ export class Character {
     const r = mulberry32((info.seed ^ 0x51ed27a3) >>> 0);
     this.speedK = 0.92 + r() * 0.16;
     this.lane = Math.round((r() * 2 - 1) * 3.5);
+  }
+
+  /** Personagem externo (shared/external.ts): fica na Gerência, fora das rodas e dos lugares do resto do escritório. */
+  get external(): boolean {
+    return isExternalAgent(this.info);
   }
 
   /** Aproxima o deslocamento visual da faixa (andando) ou do centro (parado). */

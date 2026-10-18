@@ -16,6 +16,7 @@ import { DayLauncher } from './daystats-launcher';
 import { RoomRenamer } from './roomrename';
 import { h } from './dom';
 import { Drawer } from './drawer';
+import { agentDrawerParts, notifyExternalSelect } from './external';
 import { FeedPanel } from './feed';
 import { HelpDialog } from './help';
 import { HistoryPopover } from './history';
@@ -349,6 +350,12 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
   store.on('connection', () => invalidate());
   onAccessChange(() => invalidate());
   world.onSelect((sel) => {
+    // Dentro da página de outro programa (iframe da mesma origem, ex.: o Claudio), o personagem externo é dela: o clique
+    // avisa a página de fora (ui/external.ts) e a gaveta não abre.
+    if (sel?.type === 'agent' && notifyExternalSelect(ctx.agent(sel.id))) {
+      world.select(null);
+      return;
+    }
     const prev = selection;
     selection = sel;
     // Clique no canvas (ou agente que saiu): a gaveta espera a janela do duplo clique antes de mexer na câmera.
@@ -471,7 +478,10 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
    */
   function toggleTerminal(): void {
     const id = selection?.type === 'agent' ? selection.id : null;
-    if (id !== null && pty.enabled && ctx.agent(id)?.kind === 'main') return router.toggle(id);
+    const picked = id !== null ? ctx.agent(id) : undefined;
+    // o personagem externo não tem terminal
+    if (picked && !agentDrawerParts(picked).terminal) return ctx.announce(tr('Este personagem não tem terminal.'));
+    if (id !== null && pty.enabled && picked?.kind === 'main') return router.toggle(id);
     if (id === null && pty.isOpen) return pty.close();
     if (terminal.isOpen && (id === null || terminal.agentId === id)) terminal.close();
     else if (id === null) ctx.announce(tr('Selecione um agente para abrir o terminal.'));

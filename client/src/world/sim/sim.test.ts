@@ -311,7 +311,7 @@ describe('simulação do escritório', () => {
     }
   });
 
-  it('personagem externo numa sala que o cliente ainda não desenha (core:gerencia): nada quebra', () => {
+  it('personagem externo na Gerência (core:gerencia): chega, muda de status e vai embora sem quebrar nada', () => {
     for (const first of [true, false]) {
       const sim = newSim();
       const clock = { now: T0 };
@@ -329,13 +329,16 @@ describe('simulação do escritório', () => {
       expect(ch, `first=${first}`).toBeDefined();
       expect(ch.gone).toBe(false);
       expect(Number.isFinite(ch.x) && Number.isFinite(ch.y)).toBe(true);
-      expect(sim.rooms.has('core:gerencia')).toBe(false);
+      // a Gerência (layout/core.ts) existe enquanto ele está lá (os detalhes em gerencia.test.ts)
+      expect(sim.rooms.has('core:gerencia')).toBe(true);
       // saiu (offline e depois some do snapshot)
       sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working'), ext('offline')], 5), clock.now);
       run(sim, clock, 5);
       sim.applySnapshot(snap(rooms, [agent('ana', '/a', 'working')], 6), clock.now);
       run(sim, clock, 60);
       expect(sim.chars.get('ana')).toBeDefined();
+      expect(sim.chars.has('external:claudio')).toBe(false);
+      expect(sim.rooms.has('core:gerencia')).toBe(false);
     }
   });
 

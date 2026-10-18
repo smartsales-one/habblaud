@@ -2,6 +2,7 @@
 // por que não), o que a tecla Enter faz, a linha de situação de cada envio e o ritmo da consulta da entrega.
 // No Codex a mensagem entra na fila da sessão (`codex queue`) e vira prompt quando ela fica ociosa: "Entregue" diz
 // isso; sem quem entregue (no Docker, o auxiliar do host), a dica é a do `npm run codex:bridge`.
+import { isExternalAgent } from '../../../shared/external';
 import { MESSAGE_MAX } from '../../../shared/messages';
 import type { AgentInfo, OutboxStatus, Provider } from '../../../shared/types';
 import { tr } from '../../../shared/i18n';
@@ -30,6 +31,7 @@ export interface ComposerEnv {
 export function composerMode(agent: AgentInfo | undefined, env: ComposerEnv): ComposerMode {
   if (env.replaying) return { kind: 'off', text: tr('Sem mensagens no timelapse: o escritório mostrado é o de outro momento') };
   if (agent?.kind === 'sub') return { kind: 'off', text: tr('Subagentes não recebem mensagens: escreva para o agente principal') };
+  if (agent && isExternalAgent(agent)) return { kind: 'off', text: tr('Este personagem não recebe mensagens pelo Habblaud') };
   if (!agent || agent.status === 'offline' || agent.status === 'done') return { kind: 'off', text: tr('Sessão encerrada') };
   const codex = agent.provider === 'codex';
   if (!env.enabled) return { kind: 'off', text: codex ? tr('Para responder, use o Codex') : tr('Para responder, use o terminal do Claude Code') };

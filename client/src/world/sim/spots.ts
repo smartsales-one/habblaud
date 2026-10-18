@@ -6,6 +6,11 @@ export class SpotRegistry {
   private owners = new Map<string, string>();
   private byKind = new Map<SpotKind, SpotDef[]>();
   private byGroup = new Map<string, SpotDef[]>();
+  /**
+   * Quem pode usar um lugar (`by` = id de quem reserva; sem `by`, as rodas). Padrão: todos. O Sim põe aqui a regra da
+   * Gerência: ela é só do personagem externo, e ele não usa nada fora dela.
+   */
+  access: (spot: SpotDef, by: string | undefined) => boolean = () => true;
 
   /** Substitui o conjunto de spots mantendo as reservas dos que continuam existindo. Retorna as reservas perdidas. */
   setSpots(spots: Iterable<SpotDef>): { spotId: string; owner: string }[] {
@@ -54,6 +59,8 @@ export class SpotRegistry {
   }
 
   isFree(id: string, by?: string): boolean {
+    const s = this.spots.get(id);
+    if (s && !this.access(s, by)) return false;
     const o = this.owners.get(id);
     return o === undefined || o === by;
   }

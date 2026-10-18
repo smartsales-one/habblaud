@@ -8,7 +8,8 @@ import { loadWorldAssets, type WorldAssets } from './assets';
 import { Camera, overviewFrame } from './camera';
 import { createDebug, type WorldDebug } from './debug';
 import { BUILDING_H, COL_W } from './constants';
-import { RECEPTION_ID } from './layout/core';
+import { GERENCIA_ID, RECEPTION_ID } from './layout/core';
+import type { RoomState } from './sim/room-state';
 import { inRect } from './layout/geometry';
 import { attachInput, type Hit } from './input';
 import type { AgentInfo } from '../../../shared/types';
@@ -185,6 +186,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
 
   // ------------------------------------------------------------------ hit-test
 
+  /** Sala que dá para escolher (gaveta da sala, renomear): as de projeto. A Gerência não é uma delas. */
+  const projectRoom = (room: RoomState) => room.present && !room.ghost && room.id !== GERENCIA_ID;
+
   const pick = (sx: number, sy: number): Hit => {
     const w = camera.screenToWorld(sx, sy);
     let best: string | null = null;
@@ -201,7 +205,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     if (best) return { type: 'agent', id: best };
     const tx = Math.floor(w.x / TILE);
     const ty = Math.floor(w.y / TILE);
-    for (const room of sim.rooms.values()) if (room.present && !room.ghost && inRect(room.layout.rect, tx, ty)) return { type: 'room', id: room.id };
+    for (const room of sim.rooms.values()) if (projectRoom(room) && inRect(room.layout.rect, tx, ty)) return { type: 'room', id: room.id };
     return null;
   };
 
@@ -351,8 +355,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
         ? hit.id
         : hit?.type === 'agent'
           ? (sim.chars.get(hit.id)?.roomId ?? null)
-          : ([...sim.rooms.values()].find((room) => room.present && !room.ghost && inRect(room.layout.rect, Math.floor(w.x / TILE), Math.floor(w.y / TILE)))?.id ?? null);
-    if (!roomId || !sim.rooms.has(roomId)) return;
+          : ([...sim.rooms.values()].find((room) => projectRoom(room) && inRect(room.layout.rect, Math.floor(w.x / TILE), Math.floor(w.y / TILE)))?.id ?? null);
+    const target = roomId ? sim.rooms.get(roomId) : undefined;
+    if (!roomId || !target || !projectRoom(target)) return;
     e.preventDefault();
     roomMenuCbs.forEach((cb) => cb(roomId, { x: e.clientX, y: e.clientY }));
   };

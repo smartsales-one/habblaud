@@ -1,6 +1,7 @@
 // Editor do personagem, parte pura (sem DOM): quando a gaveta oferece a edição, como as peças se agrupam, os rótulos
 // em português e o que vai para o servidor em `parts`. A interface fica em character-editor.ts.
 import { PART_KEYS, type AppearanceParts, type PartKey } from '../../../shared/appearance';
+import { isExternalAgent } from '../../../shared/external';
 import { isDemoId } from '../../../shared/timeline';
 import type { AgentInfo } from '../../../shared/types';
 import type { Appearance } from '../art/api';
@@ -21,7 +22,9 @@ export interface EditGate {
  * O lápis "Editar personagem" aparece? Só para o principal real, ao vivo, que não está saindo (offline: o servidor
  * responderia 404) e com acesso local (a trava do terminal).
  */
-export function canEditCharacter(a: Pick<AgentInfo, 'id' | 'kind' | 'status'>, g: EditGate): boolean {
+export function canEditCharacter(a: Pick<AgentInfo, 'id' | 'kind' | 'status' | 'provider'>, g: EditGate): boolean {
+  // o personagem externo tem a aparência que a rota dele manda (shared/external.ts): nada de editar por aqui
+  if (isExternalAgent(a)) return false;
   return a.kind === 'main' && a.status !== 'offline' && g.live && g.terminal && g.local && !g.replaying && !g.mock && !isDemoId(a.id);
 }
 
