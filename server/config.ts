@@ -63,6 +63,11 @@ export interface ServerConfig {
   officeName: string;
   /** Por que HABBLAUD_OFFICE_NAME foi recusada (vai para o log ao iniciar; o nome fica o padrão). */
   officeNameWarning?: string;
+  /**
+   * HABBLAUD_MANAGEMENT_ROOM=1: a primeira vaga das salas de projeto fica sempre reservada para a Gerência do personagem
+   * externo (vai em OfficeSnapshot.meta.managementRoom). Desligado: a vaga só é dela com o externo presente.
+   */
+  managementRoom: boolean;
 }
 
 export interface WorldConfig {
@@ -274,5 +279,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, argv: string[] 
     world: parseWorldConfig(env, argv),
     officeName: officeName.name,
     officeNameWarning: officeName.warning,
+    managementRoom: isTruthy(env.HABBLAUD_MANAGEMENT_ROOM),
   };
 }

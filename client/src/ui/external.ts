@@ -4,6 +4,7 @@
 //   externo avisa a página de fora — window.parent.postMessage({type: 'habblaud:external-select', id}, location.origin),
 //   com o id da rota (/api/external/agents/:id, sem o prefixo "external:"; ex.: "claudio") — e a gaveta não abre: quem
 //   mostra o personagem é a página de fora. Fora de iframe (ou num iframe de outra origem), a gaveta comum abre.
+//   Um duplo clique vale como um clique: uma mensagem só (externalSelectNotifier) e a câmera não passa a segui-lo.
 // - Na gaveta, o externo não tem terminal, mensagens, editor de personagem, conta, estatísticas de sessão, subagentes nem
 //   vida social (ele não entra nas rodas): só nome, estado, atividade, tarefas e a linha do tempo.
 import { EXTERNAL_ID_PREFIX, isExternalAgent } from '../../../shared/external';
@@ -63,11 +64,33 @@ export function notifyExternalSelect(agent: Pick<AgentInfo, 'id' | 'provider'> |
   return true;
 }
 
-/** Partes da gaveta do agente que valem para ele (o externo só tem as de leitura). */
+/** Um duplo clique entrega 2 cliques e o duplo: dentro desta janela, o mesmo personagem não é avisado de novo. */
+export const EXTERNAL_SELECT_REPEAT_MS = 600;
+
+/**
+ * notifyExternalSelect com uma mensagem só por clique: os cliques repetidos no mesmo personagem dentro de
+ * EXTERNAL_SELECT_REPEAT_MS (o duplo clique) não mandam outra, mas continuam sem abrir a gaveta (retorna true).
+ */
+export function externalSelectNotifier(frame?: FrameWindow, clock: () => number = () => Date.now()): (agent: Pick<AgentInfo, 'id' | 'provider'> | undefined) => boolean {
+  let last: { id: string; at: number } | null = null;
+  return (agent) => {
+    // a janela só na hora do clique (a interface também é montada em testes sem DOM)
+    const win = frame ?? (typeof window === 'undefined' ? undefined : window);
+    if (!win || !agent || !isExternalAgent(agent) || !sameOriginParent(win)) return false;
+    const now = clock();
+    if (last && last.id === agent.id && now - last.at < EXTERNAL_SELECT_REPEAT_MS) return true;
+    if (!notifyExternalSelect(agent, win)) return false;
+    last = { id: agent.id, at: now };
+    return true;
+  };
+}
+
+/**
+ * Partes da gaveta do agente que valem para ele (o externo só tem as de leitura). A caixa de mensagem e o editor do
+ * personagem se escondem sozinhos (composerMode e canEditCharacter já recusam o externo).
+ */
 export interface AgentDrawerParts {
   terminal: boolean;
-  message: boolean;
-  character: boolean;
   account: boolean;
   stats: boolean;
   team: boolean;
@@ -78,5 +101,5 @@ export interface AgentDrawerParts {
 
 export function agentDrawerParts(a: Pick<AgentInfo, 'provider'>): AgentDrawerParts {
   const all = !isExternalAgent(a);
-  return { terminal: all, message: all, character: all, account: all, stats: all, team: all, social: all, roomLink: all };
+  return { terminal: all, account: all, stats: all, team: all, social: all, roomLink: all };
 }

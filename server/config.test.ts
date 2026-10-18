@@ -37,3 +37,12 @@ describe('HABBLAUD_OFFICE_NAME', () => {
     expect(loadConfig(env, []).officeNameWarning).toBeUndefined();
   });
 });
+
+describe('HABBLAUD_MANAGEMENT_ROOM', () => {
+  it('ligada com 1 (ou true/yes/sim/on); ausente, vazia ou 0: desligada', () => {
+    const env = { HOME: '/nao-existe', HABBLAUD_CLAUDE_DIRS: '/nao-existe/.claude', HABBLAUD_CODEX: '0' };
+    expect(loadConfig(env, []).managementRoom).toBe(false);
+    for (const v of ['1', 'true', ' on ']) expect(loadConfig({ ...env, HABBLAUD_MANAGEMENT_ROOM: v }, []).managementRoom, v).toBe(true);
+    for (const v of ['', '0', 'false', 'off']) expect(loadConfig({ ...env, HABBLAUD_MANAGEMENT_ROOM: v }, []).managementRoom, v).toBe(false);
+  });
+});

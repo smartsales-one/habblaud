@@ -2,7 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AgentInfo, OfficeSnapshot } from '../../../shared/types';
 import { canEditCharacter } from './character-model';
 import { composerMode } from './composer-model';
-import { agentDrawerParts, EXTERNAL_SELECT_MESSAGE, externalKey, notifyExternalSelect, sameOriginParent, type FrameWindow } from './external';
+import {
+  agentDrawerParts,
+  EXTERNAL_SELECT_MESSAGE,
+  EXTERNAL_SELECT_REPEAT_MS,
+  externalKey,
+  externalSelectNotifier,
+  notifyExternalSelect,
+  sameOriginParent,
+  type FrameWindow,
+} from './external';
 import { computeCounters, groupRooms } from './model';
 import { ptyControllable } from './ptyapi';
 
@@ -63,6 +72,28 @@ describe('clique no personagem externo', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('duplo clique (dois cliques e o duplo): uma mensagem só, e a gaveta continua fechada', () => {
+    const { win, post } = framed();
+    let now = 1_000;
+    const notify = externalSelectNotifier(win, () => now);
+    expect(notify(claudio)).toBe(true);
+    now += 150;
+    expect(notify(claudio)).toBe(true);
+    now += 10;
+    expect(notify(claudio)).toBe(true);
+    expect(post).toHaveBeenCalledTimes(1);
+    // outro clique depois: outra mensagem
+    now += EXTERNAL_SELECT_REPEAT_MS;
+    expect(notify(claudio)).toBe(true);
+    expect(post).toHaveBeenCalledTimes(2);
+    // fora de iframe ou agente de verdade: nada, e a gaveta abre
+    expect(notify(real)).toBe(false);
+    const alone: FrameWindow = { location: { origin: ORIGIN }, parent: null };
+    (alone as { parent: unknown }).parent = alone;
+    expect(externalSelectNotifier(alone, () => now)(claudio)).toBe(false);
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
   it('o id vai sem o prefixo "external:"', () => {
     expect(externalKey('external:claudio')).toBe('claudio');
     expect(externalKey('external:assistente-2')).toBe('assistente-2');
@@ -93,7 +124,7 @@ const ext: AgentInfo = {
 
 describe('gaveta do personagem externo (fora de iframe)', () => {
   it('sem terminal, mensagens, editor, conta, estatísticas, equipe, vida social nem link para a sala', () => {
-    expect(agentDrawerParts(ext)).toEqual({ terminal: false, message: false, character: false, account: false, stats: false, team: false, social: false, roomLink: false });
+    expect(agentDrawerParts(ext)).toEqual({ terminal: false, account: false, stats: false, team: false, social: false, roomLink: false });
     expect(Object.values(agentDrawerParts({ provider: 'claude' })).every(Boolean)).toBe(true);
     expect(Object.values(agentDrawerParts({})).every(Boolean)).toBe(true);
     expect(Object.values(agentDrawerParts({ provider: 'codex' })).every(Boolean)).toBe(true);

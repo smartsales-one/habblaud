@@ -89,6 +89,7 @@ export const EN: Readonly<Record<string, string>> = {
   "Para mandar mensagens ao Codex: com o Habblaud no Docker, deixe npm run codex:bridge rodando; no modo Node funciona sozinho": "To send messages to Codex: with Habblaud in Docker, keep npm run codex:bridge running; in Node mode it works on its own",
   "Sem mensagens no timelapse: o escritório mostrado é o de outro momento": "No messages in timelapse: the office shown is from another moment",
   "Subagentes não recebem mensagens: escreva para o agente principal": "Subagents don't receive messages: write to the main agent",
+  "Este personagem não recebe mensagens pelo Habblaud": "This character doesn't take messages through Habblaud",
   "Sessão encerrada": "Session ended",
   "Para responder, use o Codex": "To reply, use Codex",
   "Para responder, use o terminal do Claude Code": "To reply, use the Claude Code terminal",
@@ -445,6 +446,7 @@ export const EN: Readonly<Record<string, string>> = {
   "Selecione um agente para seguir.": "Select an agent to follow.",
   "Nenhum pedido de permissão ou pergunta para responder agora.": "No permission requests or questions to answer right now.",
   "Selecione um agente para abrir o terminal.": "Select an agent to open the terminal.",
+  "Este personagem não tem terminal.": "This character has no terminal.",
 
   // client/src/ui/model.ts
   "Concluído": "Done",
@@ -1668,8 +1670,6 @@ export const EN: Readonly<Record<string, string>> = {
   "Personagem externo": "External character",
   "Gerência": "Management",
   "aguardando você": "waiting for you",
-  "Este personagem não recebe mensagens pelo Habblaud": "This character doesn't take messages through Habblaud",
-  "Este personagem não tem terminal.": "This character has no terminal.",
   "personagens externos demais: no máximo {0} ao mesmo tempo": "too many external characters: at most {0} at a time",
   "já existe um agente com este id no escritório": "there is already an agent with this id in the office",
   "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "external character off: it only works with Habblaud reachable only from the computer itself",

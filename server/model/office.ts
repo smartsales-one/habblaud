@@ -84,6 +84,8 @@ export interface OfficeDeps {
   world?: () => WorldMeta;
   /** Nome do escritório (ServerConfig.officeName; ver OfficeSnapshot.meta.officeName). Ausente = "Habblaud". */
   officeName?: string;
+  /** Vaga da Gerência sempre reservada (ServerConfig.managementRoom; ver OfficeSnapshot.meta.managementRoom). */
+  managementRoom?: boolean;
   now?: () => number;
 }
 
@@ -1139,6 +1141,7 @@ export class Office {
         startedAt: this.deps.startedAt,
         version: this.deps.version,
         officeName: officeNameOf(this.deps.officeName),
+        managementRoom: this.deps.managementRoom === true,
         build: this.deps.build?.(),
         terminal: this.deps.terminal === true,
         messages: this.deps.messages !== undefined,

@@ -478,6 +478,13 @@ describe('Office', () => {
     expect(new Office({ ...deps, officeName: 'a\nb' }).commit().snapshot.meta.officeName).toBe('Habblaud');
   });
 
+  it('meta.managementRoom: sempre vai no snapshot; true só com a vaga da Gerência reservada', () => {
+    const deps = { names: new NameStore(null), version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };
+    expect(makeOffice().office.commit().snapshot.meta.managementRoom).toBe(false);
+    expect(new Office({ ...deps, managementRoom: true }).commit().snapshot.meta.managementRoom).toBe(true);
+    expect(new Office({ ...deps, managementRoom: false }).commit().snapshot.meta.managementRoom).toBe(false);
+  });
+
   it('canMessage: só principais presentes que o registro de mensagens vê conectados; meta.messages com o recurso ligado', () => {
     const reach = new Set<string>();
     const deps = { names: new NameStore(null), version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };

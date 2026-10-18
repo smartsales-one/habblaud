@@ -89,6 +89,7 @@ export const FR: Readonly<Record<string, string>> = {
   "Para mandar mensagens ao Codex: com o Habblaud no Docker, deixe npm run codex:bridge rodando; no modo Node funciona sozinho": "Pour envoyer des messages à Codex : avec Habblaud dans Docker, laissez tourner npm run codex:bridge ; en mode Node, cela marche tout seul",
   "Sem mensagens no timelapse: o escritório mostrado é o de outro momento": "Pas de messages pendant le timelapse : le bureau affiché est celui d'un autre moment",
   "Subagentes não recebem mensagens: escreva para o agente principal": "Les sous-agents ne reçoivent pas de messages : écrivez à l'agent principal",
+  "Este personagem não recebe mensagens pelo Habblaud": "Ce personnage ne reçoit pas de messages par Habblaud",
   "Sessão encerrada": "Session terminée",
   "Para responder, use o Codex": "Pour répondre, utilisez Codex",
   "Para responder, use o terminal do Claude Code": "Pour répondre, utilisez le terminal de Claude Code",
@@ -438,6 +439,7 @@ export const FR: Readonly<Record<string, string>> = {
   "Selecione um agente para seguir.": "Sélectionnez un agent à suivre.",
   "Nenhum pedido de permissão ou pergunta para responder agora.": "Aucune demande de permission ni question à traiter pour le moment.",
   "Selecione um agente para abrir o terminal.": "Sélectionnez un agent pour ouvrir le terminal.",
+  "Este personagem não tem terminal.": "Ce personnage n'a pas de terminal.",
 
   // client/src/ui/model.ts
   "Concluído": "Terminé",
@@ -2209,8 +2211,6 @@ export const FR: Readonly<Record<string, string>> = {
   "Personagem externo": "Personnage externe",
   "Gerência": "Direction",
   "aguardando você": "vous attend",
-  "Este personagem não recebe mensagens pelo Habblaud": "Ce personnage ne reçoit pas de messages par Habblaud",
-  "Este personagem não tem terminal.": "Ce personnage n'a pas de terminal.",
   "personagens externos demais: no máximo {0} ao mesmo tempo": "trop de personnages externes : {0} au maximum à la fois",
   "já existe um agente com este id no escritório": "il y a déjà un agent avec cet id dans le bureau",
   "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "personnage externe désactivé : il ne fonctionne que si Habblaud n'est accessible que depuis l'ordinateur lui-même",

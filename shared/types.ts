@@ -355,6 +355,13 @@ export interface OfficeSnapshot {
      */
     officeName?: string;
     /**
+     * HABBLAUD_MANAGEMENT_ROOM=1: a primeira vaga das salas de projeto (logo depois do núcleo) fica sempre reservada para a
+     * Gerência do personagem externo, com ou sem ele — nenhuma sala de projeto muda de lugar quando ele chega ou sai. O
+     * servidor sempre manda; ausente (servidor antigo, visita) = false: a vaga só é dela com o externo presente. Os instantes
+     * do timelapse não trazem o campo: o mundo usa o do snapshot ao vivo (a mesma ordem das salas ao vivo e no replay).
+     */
+    managementRoom?: boolean;
+    /**
      * Identificador do build do cliente que o servidor está servindo (nome do bundle, ex.: "main-BFqheOCa").
      * Uma página aberta com outro build está desatualizada e deve se recarregar. Ausente no modo dev.
      */

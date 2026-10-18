@@ -281,6 +281,9 @@ export function managementRoomInfo(now: number): RoomInfo {
  * quadro e placa com o nome na parede, poltronas de visita, sofá com mesa de centro, estante e plantas. Sem interruptor:
  * fica acesa enquanto existe.
  *
+ * Só um personagem externo fica com a mesa: se vierem outros na Gerência (o servidor aceita até 8; mais de um por sala
+ * está fora do escopo), eles trabalham em pé dentro dela (Sim.planOverflow), sem banqueta nem poltrona reservada.
+ *
  *   linhas 0–1  parede norte: quadro, placa, relógio e janela
  *   linhas 2–10 piso: mesa do diretor à esquerda, sofá à direita
  *   linha 11    parede sul com a porta para o corredor (colunas 7–8)

@@ -33,15 +33,20 @@ do meio (0.**3**.0).
   copa e do lounge (ao norte do corredor) vira a Gerência, desenhada à mão: mesa de diretor com computador e cadeira,
   quadro e placa com o nome na parede, poltronas de visita, sofá com mesa de centro, estante e plantas. Ele senta na
   mesa do diretor (trabalhando digita, esperando levanta a mão) e, parado, fica sentado ou anda só pela sala (sofá,
-  quadro, janela, estante); nunca vai à copa nem entra nas rodas, e ninguém mais usa a Gerência. Se havia uma sala de
-  projeto na vaga, ela se muda para a próxima livre; quando o personagem sai, a Gerência apaga, é desmontada e a vaga
-  volta para as salas de projeto. Sem personagem externo, o prédio é o de sempre. A Gerência não entra na lista de
+  quadro, janela, estante); nunca vai à copa nem entra nas rodas, e ninguém mais usa a Gerência. Com
+  `HABBLAUD_MANAGEMENT_ROOM=1` (vai no snapshot em `meta.managementRoom`), essa vaga fica sempre reservada: a Gerência
+  é montada ali quando o personagem chega e desmontada ali mesmo quando ele sai (sem ele, a vaga é um jardim), e
+  nenhuma sala de projeto muda de lugar; a ordem das salas é a mesma ao vivo, ao recarregar e no timelapse. Sem a
+  variável, a vaga só é da Gerência com o personagem presente: a sala de projeto que estiver nela se muda para a
+  próxima livre e, quando ele sai, a vaga volta para as salas de projeto; sem personagem externo, o prédio é o de
+  sempre. A Gerência não entra na lista de
   salas nem no contador do topo, e não abre gaveta de sala. A gaveta do personagem mostra nome, estado, atividade e a
   linha do tempo, sem terminal, mensagens, edição do personagem, conta, estatísticas, subagentes nem vida social.
 - **Clique no personagem externo dentro de outra página.** Com o Habblaud num iframe da mesma origem (como no
   assistente que o mostra), clicar no personagem externo manda à página de fora
   `postMessage({type: "habblaud:external-select", id}, location.origin)`, com o `id` da rota (sem o prefixo
-  `external:`; ex.: `"claudio"`), e a gaveta não abre. Fora de iframe, ou num iframe de outra origem, abre a gaveta.
+  `external:`; ex.: `"claudio"`), e a gaveta não abre; um duplo clique vale como um clique (uma mensagem, sem a
+  câmera seguir o personagem). Fora de iframe, ou num iframe de outra origem, abre a gaveta.
 
 ## [1.0.3] - 2026-10-16
 

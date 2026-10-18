@@ -16,7 +16,7 @@ import { DayLauncher } from './daystats-launcher';
 import { RoomRenamer } from './roomrename';
 import { h } from './dom';
 import { Drawer } from './drawer';
-import { agentDrawerParts, notifyExternalSelect } from './external';
+import { agentDrawerParts, externalSelectNotifier } from './external';
 import { FeedPanel } from './feed';
 import { HelpDialog } from './help';
 import { HistoryPopover } from './history';
@@ -349,10 +349,12 @@ export function createUI(root: HTMLElement, store: OfficeStore, world: WorldApi,
   });
   store.on('connection', () => invalidate());
   onAccessChange(() => invalidate());
+  // Um aviso por clique (o duplo clique entrega três seleções).
+  const notifyExternal = externalSelectNotifier();
   world.onSelect((sel) => {
     // Dentro da página de outro programa (iframe da mesma origem, ex.: o Claudio), o personagem externo é dela: o clique
     // avisa a página de fora (ui/external.ts) e a gaveta não abre.
-    if (sel?.type === 'agent' && notifyExternalSelect(ctx.agent(sel.id))) {
+    if (sel?.type === 'agent' && notifyExternal(ctx.agent(sel.id))) {
       world.select(null);
       return;
     }

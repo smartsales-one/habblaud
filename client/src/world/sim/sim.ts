@@ -58,6 +58,11 @@ export interface SimMode {
    * de quem está à toa há muito tempo, cronômetro do balão); mais o visitante e as luzes da visita.
    */
   visit?: boolean;
+  /**
+   * A vaga da Gerência está sempre reservada (meta.managementRoom do snapshot AO VIVO). Vale junto com o do próprio
+   * snapshot: os instantes do timelapse não trazem o campo, e assim o replay tem a mesma ordem das salas do ao vivo.
+   */
+  managementReserved?: () => boolean;
 }
 
 /** Luzes da visita: 'away' (pausado) apaga tudo; 'discreet' acende as salas vazias; 'live' é o `Sim` de sempre. */
@@ -136,6 +141,12 @@ export class Sim {
   private nextHousekeeping = 0;
   /** O último snapshot tem um personagem externo na Gerência: a vaga dela fica reservada (ver syncManagement). */
   private managementWanted = false;
+  /**
+   * HABBLAUD_MANAGEMENT_ROOM (meta.managementRoom): a vaga da Gerência é dela sempre, com ou sem o externo — nenhuma
+   * sala de projeto vai para lá (freeSlot) nem se muda por causa dela; sem a Gerência, a vaga fica como jardim.
+   */
+  private managementReserved = false;
+  private readonly reservedLive: (() => boolean) | undefined;
   /** Visita a um prédio do mundo (SimMode.visit). */
   readonly visit: boolean;
   /** Visita: o meu personagem (fora de `chars`: nem snapshot, nem vida social, nem lugar reservado). */
@@ -153,6 +164,7 @@ export class Sim {
     mode: SimMode = {},
   ) {
     this.visit = !!mode.visit;
+    this.reservedLive = mode.managementReserved;
     this.social = new Social(this, storage);
     this.building = assembleBuilding(columnsFor([]), [], 0);
     this.finder = new PathFinder(this.building.grid);
@@ -179,6 +191,7 @@ export class Sim {
     // ---- salas
     // antes das salas de projeto: com o personagem externo, a vaga da Gerência não vai para elas (freeSlot)
     this.managementWanted = snap.agents.some((a) => isExternalAgent(a) && a.roomId === GERENCIA_ID && a.status !== 'offline' && !this.forcedOffline.has(a.id));
+    this.managementReserved = !this.visit && (snap.meta.managementRoom === true || this.reservedLive?.() === true);
     let layoutDirty = false;
     const listed = new Set<string>();
     // na ordem de chegada (slot do servidor): na carga inicial as salas ocupam as vagas 0, 1, 2... nessa ordem
@@ -275,9 +288,13 @@ export class Sim {
 
   /**
    * Gerência (sala fixa do personagem externo; layout/core.ts): existe enquanto há um externo nela, sempre na vaga
-   * GERENCIA_SLOT, logo depois do núcleo. A sala de projeto que estiver ali se muda antes (moveRoom; a Gerência é
-   * construída quando o endereço antigo esvazia e é desmontado). Sem externo, ela sai da lista: apaga e é desmontada
-   * como as outras, e a vaga volta para as salas de projeto (compact). Sem interruptor: acesa enquanto existe.
+   * GERENCIA_SLOT, logo depois do núcleo. Sem externo, ela sai da lista: apaga e é desmontada ali mesmo, como as outras.
+   * - Com HABBLAUD_MANAGEMENT_ROOM (managementReserved), a vaga nunca vai para uma sala de projeto: nenhuma muda de lugar
+   *   quando o externo chega ou sai, e sem ele a vaga fica como jardim.
+   * - Sem a variável, a vaga só é dela com o externo presente: a sala de projeto que estiver ali se muda antes
+   *   (moveRoom; a Gerência é construída quando o endereço antigo esvazia e é desmontado), e sem ele a vaga volta para
+   *   as salas de projeto (compact). (Com a variável isso só aconteceria se ela fosse ligada com a página aberta.)
+   * Sem interruptor: acesa enquanto existe.
    * Retorna true quando acabou de criar a sala (o prédio precisa ser remontado).
    */
   private syncManagement(first: boolean, now: number): boolean {
@@ -310,10 +327,13 @@ export class Sim {
     return true;
   }
 
-  /** Menor vaga sem sala (contando as que ainda estão desmontando e a da Gerência, se há um externo nela). */
+  /**
+   * Menor vaga sem sala (contando as que ainda estão desmontando e a da Gerência: sempre, com HABBLAUD_MANAGEMENT_ROOM;
+   * senão, só com um externo nela). Como o compact() só muda salas para esta vaga, nada vai para a da Gerência reservada.
+   */
   private freeSlot(): number {
     const used = new Set<number>();
-    if (this.managementWanted) used.add(GERENCIA_SLOT);
+    if (this.managementWanted || this.managementReserved) used.add(GERENCIA_SLOT);
     for (const r of this.rooms.values()) if (r.phase !== 'gone') used.add(r.slot);
     let slot = 0;
     while (used.has(slot)) slot++;

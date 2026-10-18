@@ -89,6 +89,7 @@ export const ES: Readonly<Record<string, string>> = {
   "Para mandar mensagens ao Codex: com o Habblaud no Docker, deixe npm run codex:bridge rodando; no modo Node funciona sozinho": "Para enviar mensajes a Codex: con Habblaud en Docker, deja npm run codex:bridge en ejecución; en modo Node funciona solo",
   "Sem mensagens no timelapse: o escritório mostrado é o de outro momento": "Sin mensajes en el timelapse: la oficina que ves es de otro momento",
   "Subagentes não recebem mensagens: escreva para o agente principal": "Los subagentes no reciben mensajes: escríbele al agente principal",
+  "Este personagem não recebe mensagens pelo Habblaud": "Este personaje no recibe mensajes por Habblaud",
   "Sessão encerrada": "Sesión cerrada",
   "Para responder, use o Codex": "Para responder, usa Codex",
   "Para responder, use o terminal do Claude Code": "Para responder, usa la terminal de Claude Code",
@@ -445,6 +446,7 @@ export const ES: Readonly<Record<string, string>> = {
   "Selecione um agente para seguir.": "Selecciona un agente para seguir.",
   "Nenhum pedido de permissão ou pergunta para responder agora.": "No hay solicitudes de permiso ni preguntas para responder ahora.",
   "Selecione um agente para abrir o terminal.": "Selecciona un agente para abrir la terminal.",
+  "Este personagem não tem terminal.": "Este personaje no tiene terminal.",
 
   // client/src/ui/model.ts
   "Concluído": "Completado",
@@ -1668,8 +1670,6 @@ export const ES: Readonly<Record<string, string>> = {
   "Personagem externo": "Personaje externo",
   "Gerência": "Gerencia",
   "aguardando você": "esperándote",
-  "Este personagem não recebe mensagens pelo Habblaud": "Este personaje no recibe mensajes por Habblaud",
-  "Este personagem não tem terminal.": "Este personaje no tiene terminal.",
   "personagens externos demais: no máximo {0} ao mesmo tempo": "demasiados personajes externos: como máximo {0} a la vez",
   "já existe um agente com este id no escritório": "ya hay un agente con este id en la oficina",
   "personagem externo desligado: só funciona com o Habblaud acessível apenas pelo próprio computador": "personaje externo desactivado: solo funciona con Habblaud accesible únicamente desde el propio equipo",

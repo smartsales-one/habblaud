@@ -70,14 +70,14 @@ function claudio(status: AgentInfo['status'], extra: Partial<AgentInfo> = {}): A
   return agent('external:claudio', GERENCIA_ID, status, { provider: 'external', name: 'Claudio', role: 'Personagem externo', sessionId: '', account: '', canMessage: false, seed: 4242, ...extra });
 }
 
-function snap(rooms: RoomInfo[], agents: AgentInfo[], rev = 1): OfficeSnapshot {
+function snap(rooms: RoomInfo[], agents: AgentInfo[], rev = 1, meta: Partial<OfficeSnapshot['meta']> = {}): OfficeSnapshot {
   return {
     rev,
     serverTime: T0,
     rooms,
     agents,
     accounts: [{ id: '.claude', short: 'C', name: 'Conta C', color: '#f08a3c', configDir: '~/.claude', sessions: 1, usageStatus: 'ok' }],
-    meta: { demo: true, sources: [], startedAt: T0, version: 't' },
+    meta: { demo: true, sources: [], startedAt: T0, version: 't', ...meta },
   };
 }
 
@@ -224,5 +224,84 @@ describe('Gerência no prédio', () => {
     expect(new Set([...sim.rooms.values()].filter((r) => !r.ghost).map((r) => r.slot))).toEqual(new Set([0, 1]));
     expect(sim.building.cols).toBe(columnsFor([0, 1]));
     expect(sim.building.cols * COL_W).toBe(sim.building.grid.w);
+  });
+});
+
+describe('vaga da Gerência reservada (HABBLAUD_MANAGEMENT_ROOM, meta.managementRoom)', () => {
+  const R = { managementRoom: true };
+  const rooms = [room('/a', 0), room('/b', 1), room('/c', 2)];
+  const team = [agent('ana', '/a', 'working'), agent('bia', '/b', 'working'), agent('caio', '/c', 'idle')];
+  /** Vaga e retângulo de cada sala de projeto (o que não pode mudar). */
+  const places = (sim: Sim) =>
+    Object.fromEntries(
+      [...sim.rooms.values()]
+        .filter((r) => r.id !== GERENCIA_ID && !r.ghost)
+        .map((r) => [r.id, { slot: r.slot, rect: r.layout.rect }]),
+    );
+
+  it('sem o externo, a vaga 0 fica vazia (jardim) e as salas começam na 1', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.applySnapshot(snap(rooms, team, 1, R), clock.now);
+    run(sim, clock, 0.5);
+    expect([...sim.rooms.values()].some((r) => r.slot === GERENCIA_SLOT)).toBe(false);
+    expect(places(sim)).toEqual({ '/a': { slot: 1, rect: slotRect(1) }, '/b': { slot: 2, rect: slotRect(2) }, '/c': { slot: 3, rect: slotRect(3) } });
+    expect(sim.building.cols).toBe(columnsFor([0, 1, 2, 3]));
+  });
+
+  it('o externo chega e sai: a Gerência é montada e desmontada na vaga 0, e nenhuma sala de projeto se mexe', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.applySnapshot(snap(rooms, team, 1, R), clock.now);
+    run(sim, clock, 0.5);
+    const before = places(sim);
+    const cols = sim.building.cols;
+    let ghosts = 0;
+    const watch = () => {
+      if ([...sim.rooms.values()].some((r) => r.ghost)) ghosts++;
+      expect(places(sim)).toEqual(before);
+    };
+    sim.applySnapshot(snap(rooms, [...team, claudio('working')], 2, R), clock.now);
+    expect(sim.rooms.get(GERENCIA_ID)?.phase).toBe('building');
+    run(sim, clock, 30, watch);
+    const c = sim.chars.get('external:claudio')!;
+    expect(sim.rooms.get(GERENCIA_ID)!.phase).toBe('ready');
+    expect(c.atSpot).toBe(c.homeSpot);
+    expect(c.pose).toBe('type');
+    expect(sim.building.cols).toBe(cols);
+    sim.applySnapshot(snap(rooms, [...team, claudio('offline')], 3, R), clock.now);
+    run(sim, clock, 30, watch);
+    sim.applySnapshot(snap(rooms, team, 4, R), clock.now);
+    run(sim, clock, 30, watch);
+    expect(sim.rooms.has(GERENCIA_ID)).toBe(false);
+    expect(ghosts).toBe(0);
+    expect(places(sim)).toEqual(before);
+    expect(sim.building.cols).toBe(cols);
+  });
+
+  it('recarregar (Sim novo, com ou sem o externo) e o timelapse (o campo vem do ao vivo) dão a mesma ordem', () => {
+    const order = (s: OfficeSnapshot, live?: boolean) => {
+      const sim = new Sim(art, () => ({ ...DEFAULT_WORLD_OPTIONS }), null, live === undefined ? {} : { managementReserved: () => live });
+      sim.applySnapshot(s, T0);
+      return places(sim);
+    };
+    const live = order(snap(rooms, team, 1, R));
+    expect(order(snap(rooms, [...team, claudio('idle')], 1, R))).toEqual(live);
+    // instante do timelapse: sem meta.managementRoom (nem o externo), com o ao vivo reservando
+    expect(order(snap(rooms, team, 1), true)).toEqual(live);
+    // sem a variável, o de sempre (vaga dinâmica)
+    expect(order(snap(rooms, team, 1))['/a'].slot).toBe(0);
+    expect(order(snap(rooms, team, 1), false)['/a'].slot).toBe(0);
+  });
+
+  it('uma sala que fecha deixa o compact juntar as outras, mas nunca na vaga da Gerência', () => {
+    const sim = newSim();
+    const clock = { now: T0 };
+    sim.applySnapshot(snap(rooms, team, 1, R), clock.now);
+    run(sim, clock, 0.5);
+    // /a (vaga 1) fecha: a mais distante (/c, vaga 3) se muda para a 1, não para a 0
+    sim.applySnapshot(snap([room('/b', 1), room('/c', 2)], team.slice(1), 2, R), clock.now);
+    run(sim, clock, 60, () => expect([...sim.rooms.values()].some((r) => r.slot === GERENCIA_SLOT)).toBe(false));
+    expect(places(sim)).toEqual({ '/b': { slot: 2, rect: slotRect(2) }, '/c': { slot: 1, rect: slotRect(1) } });
   });
 });

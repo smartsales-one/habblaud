@@ -60,8 +60,11 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   // do primeiro snapshot o carregamento cobre a tela. Na visita a um prédio do mundo o nome não vem (nem o deste
   // escritório vale lá): fica o padrão. (A cena Visita não importa nada de ui/ além do DOM: ver visit.test.ts.)
   const officeName = () => (visitMode ? DEFAULT_OFFICE_NAME : officeNameOf(store.liveSnapshot?.meta.officeName));
+  // Vaga da Gerência reservada (HABBLAUD_MANAGEMENT_ROOM): pelo snapshot ao vivo, também no timelapse (os instantes
+  // reproduzidos não trazem o campo), para as salas terem a mesma ordem ao vivo, ao recarregar e no replay.
+  const managementReserved = () => !visitMode && store.liveSnapshot?.meta.managementRoom === true;
   // Simulação e desenho são recriados quando o timelapse entra, pula ou sai (rebuild).
-  let sim = new Sim(art, () => options, undefined, { visit: visitMode });
+  let sim = new Sim(art, () => options, undefined, { visit: visitMode, managementReserved });
   let renderer = new Renderer(canvas, art, sim, camera, officeName);
   let overlay = new Overlay(renderer.ctx, sim, renderer, camera, officeName);
   let assets: WorldAssets | null = null;
@@ -235,7 +238,9 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
     doubleClick: (hit) => {
       if (hit?.type === 'agent') {
         setSelection(hit);
-        focusAgent(hit.id, { follow: true });
+        // a UI pode recusar a escolha (o personagem externo dentro de um iframe: ui/external.ts): aí o duplo clique vale
+        // como um clique, sem a câmera seguir quem não ficou escolhido
+        if (selection?.type === 'agent' && selection.id === hit.id) focusAgent(hit.id, { follow: true });
       } else if (hit?.type === 'room') focusRoom(hit.id);
     },
     hover: (sx, sy, inside) => {
@@ -381,7 +386,7 @@ export function createWorld(canvas: HTMLCanvasElement, store: OfficeStore, o: Cr
   const rebuild = () => {
     // As carteiras ao vivo gravam a cada 5 s: não perde o que mudou desde a última vez (no replay, não grava nada).
     sim.social.wallets.save(Date.now());
-    sim = new Sim(art, () => options, playback ? null : undefined, { visit: visitMode });
+    sim = new Sim(art, () => options, playback ? null : undefined, { visit: visitMode, managementReserved });
     renderer = new Renderer(canvas, art, sim, camera, officeName);
     if (assets) renderer.setAssets(assets);
     if (playback) {
