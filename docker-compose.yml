@@ -39,6 +39,8 @@ services:
       HABBLAUD_LANG: ${HABBLAUD_LANG:-}
       # Nome do escritório (logotipo, título da aba, notificações e placa da recepção); vazio = Habblaud.
       HABBLAUD_OFFICE_NAME: ${HABBLAUD_OFFICE_NAME:-}
+      # 1 reserva sempre a vaga da Gerência do personagem externo (nenhuma sala de projeto muda de lugar).
+      HABBLAUD_MANAGEMENT_ROOM: ${HABBLAUD_MANAGEMENT_ROOM:-}
       # 0 desliga as sessões do Codex no escritório.
       HABBLAUD_CODEX: ${HABBLAUD_CODEX:-}
       # 1 liga o Novo agente pelo escritório (no Docker, quem começa a sessão é o auxiliar do host, npm run
