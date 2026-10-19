@@ -348,7 +348,7 @@ describe('PtyManager: pastas extras (--add-dir)', () => {
     for (const ch of ['%', '^', '&', '|', '<', '>', '!', '"']) {
       let err: unknown;
       try {
-        checkAddDirs([`C:\\proj\\R${ch}D`], cwd, 'win32');
+        checkAddDirs([join(base, `R${ch}D`)], cwd, 'win32');   // absoluto em qualquer SO (o CI roda em Linux)
       } catch (e) {
         err = e;
       }
