@@ -192,8 +192,8 @@ export interface AgentInfo {
    */
   canMessage?: boolean;
   /**
-   * Só principais: pastas extras da sessão (`claude --add-dir`), quando ela foi aberta pelo terminal do Habblaud com
-   * `addDirs` (POST /api/pty) ou retomada dele. Caminhos locais: nunca vão ao Habblaud World.
+   * Só principais: pastas extras da sessão (`claude --add-dir`), enquanto ela roda num terminal vivo deste Habblaud
+   * aberto com `addDirs` (POST /api/pty) ou retomado com elas. Caminhos locais: nunca vão ao Habblaud World.
    */
   addDirs?: string[];
 }

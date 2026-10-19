@@ -2241,6 +2241,8 @@ export const FR: Readonly<Record<string, string>> = {
   "pasta extra não encontrada: {0}": "dossier supplémentaire introuvable : {0}",
   "a pasta extra é a própria pasta do projeto: {0}": "le dossier supplémentaire est le dossier du projet lui-même : {0}",
   "pasta extra repetida: {0}": "dossier supplémentaire en double : {0}",
+  "pasta extra não pode ser um caminho de dispositivo do Windows": "un dossier supplémentaire ne peut pas être un chemin de périphérique Windows",
+  "pasta extra com caracteres não permitidos (% ^ & | < > ! \" ou de controle)": "dossier supplémentaire avec des caractères non autorisés (% ^ & | < > ! \" ou de contrôle)",
   "indisponível": "indisponible",
   "não consegui encerrar a sessão: {0}": "impossible de fermer la session : {0}",
   "Agente {0} encerrado pelo escritório.": "Agent {0} fermé depuis le bureau.",

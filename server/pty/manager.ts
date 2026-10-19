@@ -249,22 +249,20 @@ export class PtyManager {
   }
 
   /**
-   * Pastas extras do agente principal `agentId` (sessão `sessionId`), para o snapshot (AgentInfo.addDirs): as do
-   * terminal daqui que o abriu (e a sessão passa a constar no AddDirsStore) ou, sem ele, as que o arquivo guarda
-   * para a sessão. Undefined = nenhuma.
+   * Pastas extras do agente principal `agentId` (sessão `sessionId`), para o snapshot (AgentInfo.addDirs): só as do
+   * terminal VIVO daqui que o abriu (e a sessão passa a constar no AddDirsStore, para o "assumir"). O que o arquivo
+   * guarda nunca vale aqui: depois de um reinício, a mesma sessão pode ter sido retomada noutro terminal sem as pastas.
+   * Undefined = nenhuma.
    */
   addDirsOf(agentId: string, sessionId: string): string[] | undefined {
     const own = this.byAgent(agentId);
-    if (own) {
-      const dirs = own.info.addDirs;
-      if (!dirs?.length) return undefined;
-      if (SESSION_ID.test(sessionId)) {
-        own.sessions.add(sessionId);
-        this.store.remember(sessionId, dirs);
-      }
-      return [...dirs];
+    const dirs = own?.info.addDirs;
+    if (!own || !dirs?.length) return undefined;
+    if (SESSION_ID.test(sessionId)) {
+      own.sessions.add(sessionId);
+      this.store.remember(sessionId, dirs);
     }
-    return this.store.get(sessionId);
+    return [...dirs];
   }
 
   /**
@@ -587,10 +585,12 @@ function isDirectory(p: string): boolean {
 
 /**
  * Valida as pastas extras de uma sessão nova (POST /api/pty `addDirs`): ausente (ou null) = nenhuma; senão uma lista
- * de até MAX_ADD_DIRS caminhos absolutos de pastas existentes, nenhuma igual à do projeto nem repetida (no Windows,
- * sem caixa e com a barra para qualquer lado). Inválido = PtyError 400 com o motivo. Devolve os caminhos resolvidos.
+ * de até MAX_ADD_DIRS caminhos absolutos (até 4096 caracteres, sem caminho de dispositivo `\\?\`/`\\.\`, sem caractere
+ * de controle e, no Windows, sem os metacaracteres do cmd.exe) de pastas existentes, nenhuma igual à do projeto nem
+ * repetida (no Windows, sem caixa e com a barra para qualquer lado). Inválido = PtyError 400 com o motivo. Devolve os
+ * caminhos resolvidos.
  */
-export function checkAddDirs(raw: unknown, cwd: string): string[] {
+export function checkAddDirs(raw: unknown, cwd: string, platform: NodeJS.Platform = process.platform): string[] {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) throw new PtyError(400, tr('addDirs precisa ser uma lista de pastas'));
   if (raw.length > MAX_ADD_DIRS) throw new PtyError(400, tr('no máximo {0} pastas extras (addDirs)', [MAX_ADD_DIRS]));
@@ -598,7 +598,9 @@ export function checkAddDirs(raw: unknown, cwd: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const item of raw) {
-    if (typeof item !== 'string' || !isAbsolute(item)) throw new PtyError(400, tr('cada pasta extra (addDirs) precisa ser um caminho absoluto'));
+    if (typeof item !== 'string' || item.length > MAX_ADD_DIR_LENGTH || !isAbsolute(item)) throw new PtyError(400, tr('cada pasta extra (addDirs) precisa ser um caminho absoluto'));
+    if (isDevicePath(item)) throw new PtyError(400, tr('pasta extra não pode ser um caminho de dispositivo do Windows'));
+    if (hasUnsafeChars(item, platform)) throw new PtyError(400, tr('pasta extra com caracteres não permitidos (% ^ & | < > ! " ou de controle)'));
     const dir = resolve(item);
     if (!isDirectory(dir)) throw new PtyError(400, tr('pasta extra não encontrada: {0}', [dir]));
     const key = dirKey(dir);
@@ -610,12 +612,30 @@ export function checkAddDirs(raw: unknown, cwd: string): string[] {
   return out;
 }
 
+/** Tamanho máximo de cada pasta extra (o mesmo do add-dirs.json). */
+const MAX_ADD_DIR_LENGTH = 4096;
+
+/** Caminho de dispositivo do Windows (`\\?\...`, `\\.\...`, com qualquer barra). */
+function isDevicePath(p: string): boolean {
+  return /^[\\/]{2}[?.][\\/]/.test(p);
+}
+
+/**
+ * Caracteres que não podem ir num --add-dir: os de controle (sempre) e, no Windows, os que o cmd.exe interpreta. O
+ * node-pty monta uma linha de comando só (aspas só com espaço ou tab) e o `claude` do npm é um `claude.cmd`, que o
+ * cmd.exe relê (`%*`): `R&D`, `%VAR%`, `|`, `<`, `>`, `^`, `!` ou `"` quebrariam o comando ou injetariam outro.
+ */
+function hasUnsafeChars(p: string, platform: NodeJS.Platform): boolean {
+  if (/[\u0000-\u001f\u007f]/.test(p)) return true;
+  return platform === 'win32' && /[%^&|<>!"]/.test(p);
+}
+
 /** As pastas extras guardadas de uma sessão que ainda servem para retomá-la (existem, sem repetir nem ser o `cwd`). */
 function usableAddDirs(dirs: readonly string[], cwd: string): string[] {
   const seen = new Set([dirKey(resolve(cwd))]);
   const out: string[] = [];
   for (const d of dirs) {
-    if (!isAbsolute(d)) continue;
+    if (d.length > MAX_ADD_DIR_LENGTH || !isAbsolute(d) || isDevicePath(d) || hasUnsafeChars(d, process.platform)) continue;
     const dir = resolve(d);
     const key = dirKey(dir);
     if (seen.has(key) || !isDirectory(dir)) continue;

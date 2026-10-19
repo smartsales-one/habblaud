@@ -1851,6 +1851,8 @@ export const EN: Readonly<Record<string, string>> = {
   "pasta extra não encontrada: {0}": "extra folder not found: {0}",
   "a pasta extra é a própria pasta do projeto: {0}": "the extra folder is the project folder itself: {0}",
   "pasta extra repetida: {0}": "repeated extra folder: {0}",
+  "pasta extra não pode ser um caminho de dispositivo do Windows": "an extra folder can't be a Windows device path",
+  "pasta extra com caracteres não permitidos (% ^ & | < > ! \" ou de controle)": "extra folder with characters that aren't allowed (% ^ & | < > ! \" or control characters)",
   "indisponível": "unavailable",
   "não consegui encerrar a sessão: {0}": "couldn't end the session: {0}",
   "Agente {0} encerrado pelo escritório.": "Agent {0} ended from the office.",

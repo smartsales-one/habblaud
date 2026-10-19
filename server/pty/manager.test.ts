@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { ptyRequestProblem } from '../http/pty';
 import { AddDirsStore } from './add-dirs';
 import {
+  checkAddDirs,
   claudeBinFrom,
   findExecutable,
   fixSpawnHelper,
@@ -337,6 +338,38 @@ describe('PtyManager: pastas extras (--add-dir)', () => {
     expect(s.spawned).toHaveLength(0);
   });
 
+  it('recusa caminho longo demais, caminho de dispositivo do Windows e caractere de controle', () => {
+    for (const bad of [`${a}${sep}${'x'.repeat(4100)}`, '\\\\?\\C:\\proj', '\\\\.\\C:\\proj', '//?/C:/proj', `${a}\u0007`, `${a}\nrm`]) {
+      expect(() => checkAddDirs([bad], cwd), JSON.stringify(bad.slice(0, 40))).toThrow(PtyError);
+    }
+  });
+
+  it('no Windows: recusa os metacaracteres do cmd.exe (% ^ & | < > ! "), antes de olhar o disco', () => {
+    for (const ch of ['%', '^', '&', '|', '<', '>', '!', '"']) {
+      let err: unknown;
+      try {
+        checkAddDirs([`C:\\proj\\R${ch}D`], cwd, 'win32');
+      } catch (e) {
+        err = e;
+      }
+      expect(err, ch).toBeInstanceOf(PtyError);
+      expect((err as PtyError).status).toBe(400);
+      expect((err as PtyError).message).toMatch(/caracteres não permitidos/);
+    }
+    // Fora do Windows não há cmd.exe: a mesma pasta só precisa existir.
+    const amp = join(base, 'R&D');
+    mkdirSync(amp, { recursive: true });
+    expect(checkAddDirs([amp], cwd, 'linux')).toEqual([amp]);
+  });
+
+  it.runIf(process.platform === 'win32')('no Windows, a pasta com & não abre terminal (400)', () => {
+    const s = setup();
+    const amp = join(base, 'R&D');
+    mkdirSync(amp, { recursive: true });
+    expect(() => s.manager.create({ cwd, addDirs: [amp] })).toThrow(/caracteres não permitidos/);
+    expect(s.spawned).toHaveLength(0);
+  });
+
   it.runIf(process.platform === 'win32')('no Windows, a mesma pasta com outra caixa ou barra conta como repetida (ou como o projeto)', () => {
     const s = setup();
     expect(() => s.manager.create({ cwd, addDirs: [a, a.toUpperCase()] })).toThrow(PtyError);
@@ -350,8 +383,12 @@ describe('PtyManager: pastas extras (--add-dir)', () => {
     const info = s.manager.create({ cwd, addDirs: [a, b] });
     expect(s.manager.addDirsOf(info.agentId, SESSION)).toEqual([a, b]);
     expect(store.get(SESSION)).toEqual([a, b]);
-    // Outro agente, sem terminal daqui: só o que o arquivo diz.
-    expect(s.manager.addDirsOf('acc:1', '1f8fad5b-d9cb-469f-a165-70867728950e')).toBeUndefined();
+    // Outro agente, sem terminal daqui: nada, mesmo com a sessão dele no arquivo (depois de um reinício ela pode ter
+    // sido retomada noutro terminal sem as pastas; o arquivo só serve ao "assumir").
+    const other = '1f8fad5b-d9cb-469f-a165-70867728950e';
+    store.remember(other, [a]);
+    expect(s.manager.addDirsOf('acc:1', other)).toBeUndefined();
+    expect(store.get(other)).toEqual([a]);
     s.manager.close(info.id);
     expect(store.get(SESSION)).toBeUndefined();
     expect(s.manager.addDirsOf(info.agentId, SESSION)).toBeUndefined();
@@ -391,7 +428,7 @@ describe('PtyManager: pastas extras (--add-dir)', () => {
 });
 
 describe('ptyRequestProblem', () => {
-  const req =(h: Record<string, string>, addr = '127.0.0.1') => ({ socket: { remoteAddress: addr }, headers: h }) as unknown as IncomingMessage;
+  const req = (h: Record<string, string>, addr = '127.0.0.1') => ({ socket: { remoteAddress: addr }, headers: h }) as unknown as IncomingMessage;
 
   it('aceita o próprio computador, mesma origem', () => {
     expect(ptyRequestProblem(req({ host: 'localhost:4747', origin: 'http://localhost:4747', 'sec-fetch-site': 'same-origin' }))).toBeNull();

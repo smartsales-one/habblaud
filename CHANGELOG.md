@@ -14,12 +14,14 @@ do meio (0.**3**.0).
 
 - **Pastas extras ao abrir uma sessão pelo terminal (`addDirs`, `claude --add-dir`).** `POST /api/pty` aceita
   `addDirs`: uma lista de até 8 pastas (caminho absoluto de uma pasta que existe, diferente da `cwd` e sem repetir;
-  no Windows, sem diferença de maiúsculas nem de barra), e o Claude Code abre com um `--add-dir` para cada uma. Pasta
-  inválida é recusada com 400 e o motivo; sem `addDirs`, nada muda. O terminal devolve as pastas (`PtyInfo.addDirs`),
-  o agente aberto assim as leva no snapshot (`AgentInfo.addDirs`) e "Assumir" a sessão reabre com as mesmas pastas
+  no Windows, sem diferença de maiúsculas nem de barra; sem caractere de controle nem caminho de dispositivo
+  `\\?\`/`\\.\` e, no Windows, sem `% ^ & | < > ! "`, que o `claude.cmd` repassaria ao cmd.exe), e o Claude Code abre
+  com um `--add-dir` para cada uma. Pasta inválida é recusada com 400 e o motivo; sem `addDirs`, nada muda. O
+  terminal devolve as pastas (`PtyInfo.addDirs`), o agente aberto assim leva as pastas no snapshot
+  (`AgentInfo.addDirs`) enquanto o terminal daqui estiver aberto, e "Assumir" a sessão reabre com as mesmas pastas
   (antes do `--resume`; a que sumiu fica de fora). Sessão -> pastas fica também em `add-dirs.json`, na pasta de dados
-  (modo 600), para valer depois de um reinício do Habblaud; a entrada sai quando o terminal da sessão encerra (e as
-  esquecidas vencem em 14 dias; no máximo 100 sessões). As pastas nunca vão ao Habblaud World.
+  (modo 600), só para o "Assumir" valer depois de um reinício do Habblaud; a entrada sai quando o terminal da sessão
+  encerra (e as esquecidas vencem em 14 dias; no máximo 100 sessões). As pastas nunca vão ao Habblaud World.
 - **Nome do escritório configurável (`HABBLAUD_OFFICE_NAME`).** O nome aparece no logotipo em pixels da barra do topo
   e na placa da recepção (as duas com a fonte bitmap da placa da marca e nas mesmas cores; com o nome padrão, a placa
   continua a de sempre), no título da aba e no nome do app na Tela de Início desde o carregamento, nas notificações do
