@@ -191,6 +191,11 @@ export interface AgentInfo {
    * e perguntou pela caixa de entrada há pouco. Ver POST /api/messages.
    */
   canMessage?: boolean;
+  /**
+   * Só principais: pastas extras da sessão (`claude --add-dir`), quando ela foi aberta pelo terminal do Habblaud com
+   * `addDirs` (POST /api/pty) ou retomada dele. Caminhos locais: nunca vão ao Habblaud World.
+   */
+  addDirs?: string[];
 }
 
 export interface RoomInfo {
@@ -743,6 +748,8 @@ export interface PtyInfo {
   resumed?: string;
   /** Agente que este terminal assumiu (o id antigo, do processo encerrado). */
   fromAgent?: string;
+  /** Pastas extras da sessão (`claude --add-dir`, POST /api/pty `addDirs`); ausente = nenhuma. */
+  addDirs?: string[];
   startedAt: number;
   exitedAt?: number;
   exitCode?: number;

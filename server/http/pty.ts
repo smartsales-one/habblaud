@@ -1,6 +1,7 @@
 // Rotas do terminal interativo (PtyManager, server/pty/manager.ts):
 //   GET  /api/pty                      estado do recurso e terminais abertos
-//   POST /api/pty                      {cwd, account?, cols?, rows?}: sessão nova do Claude Code
+//   POST /api/pty                      {cwd, account?, cols?, rows?, addDirs?}: sessão nova do Claude Code
+//                                      (addDirs: até 8 pastas extras, `claude --add-dir`; a resposta as repete)
 //   GET  /api/pty/:id/stream           SSE: reset (tela guardada) | data | exit
 //   POST /api/pty/:id/input|resize|close
 //   POST /api/agents/:id/stop          encerra o agente (aqui ou noutro terminal)
@@ -85,7 +86,7 @@ export function createPtyRoutes(ptys: PtyManager): (req: IncomingMessage, res: S
       if (method === 'GET') return sendJson(res, 200, { status: ptys.status(), ptys: ptys.list() });
       if (method !== 'POST') return notAllowed(res, 'GET, POST');
       const body = (await readJson(req)) as Record<string, unknown>;
-      return sendJson(res, 201, ptys.create({ cwd: body?.cwd, account: body?.account, cols: body?.cols, rows: body?.rows }));
+      return sendJson(res, 201, ptys.create({ cwd: body?.cwd, account: body?.account, cols: body?.cols, rows: body?.rows, addDirs: body?.addDirs }));
     }
     const id = decode(rawId);
     if (act === 'stream') {

@@ -130,6 +130,8 @@ function canaryOffice(): { rooms: RoomInfo[]; agents: AgentInfo[] } {
     statusSince: 1_700_000_000_789,
     role: 'CANARIO-PAPEL',
     canMessage: true,
+    // Pastas extras da sessão (`claude --add-dir`): caminhos, nunca sobem.
+    addDirs: ['/Users/canario-usuario/projetos/CANARIO-EXTRA-1', 'C:\\canario\\CANARIO-EXTRA-2'],
   };
   const agents = [
     agent(MAIN_ID, CANARY_ROOM, {
@@ -231,6 +233,15 @@ describe('projeção: regras', () => {
     expect(JSON.stringify(u)).not.toMatch(/external|gerencia|Claudio/);
     // Só o externo: prédio sem andares.
     expect(project(input([room('core:gerencia')], [agents[1]]), new FakeIds(), NOW).floors).toEqual([]);
+  });
+
+  it('addDirs (pastas extras da sessão, `claude --add-dir`) nunca sobe: o agente sobe igual a um sem elas', () => {
+    const dirs = ['/Users/ana/projetos/discador-secreto', 'C:\\smartSalesOne\\portal-secreto'];
+    const withDirs = project(input([room('/p/real')], [agent('acc:1', '/p/real', { addDirs: dirs })]), new FakeIds(), NOW);
+    const without = project(input([room('/p/real')], [agent('acc:1', '/p/real')]), new FakeIds(), NOW);
+    expect(withDirs).toEqual(without);
+    const json = JSON.stringify(withDirs);
+    for (const s of ['addDirs', 'discador', 'portal', 'secreto', 'smartSalesOne', '/Users']) expect(json, s).not.toContain(s);
   });
 
   it('um agente de verdade de uma conta numa pasta "external" (id "external:<pid>") continua subindo', () => {

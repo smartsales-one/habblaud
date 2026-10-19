@@ -2,9 +2,10 @@ import { EventEmitter } from 'node:events';
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { join, sep } from 'node:path';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { ptyRequestProblem } from '../http/pty';
+import { AddDirsStore } from './add-dirs';
 import {
   claudeBinFrom,
   findExecutable,
@@ -280,8 +281,117 @@ describe('PtyManager: tela para quem conecta', () => {
   });
 });
 
+describe('PtyManager: pastas extras (--add-dir)', () => {
+  const base = mkdtempSync(join(tmpdir(), 'habblaud-adddir-'));
+  const cwd = join(base, 'smartcrm');
+  const dirs = Array.from({ length: 9 }, (_, i) => join(base, `extra-${i}`));
+  for (const d of [cwd, ...dirs]) mkdirSync(d, { recursive: true });
+  const file = join(base, 'um-arquivo.txt');
+  writeFileSync(file, 'x');
+  const [a, b] = dirs;
+  afterAll(() => rmSync(base, { recursive: true, force: true }));
+
+  it('sem addDirs (ou com a lista vazia): nada muda', () => {
+    const s = setup();
+    const info = s.manager.create({ cwd });
+    s.manager.create({ cwd, addDirs: [] });
+    s.manager.create({ cwd, addDirs: null });
+    expect(s.spawned.map((x) => x.args)).toEqual([[], [], []]);
+    expect(info.addDirs).toBeUndefined();
+  });
+
+  it('abre com um --add-dir por pasta, na ordem pedida; o terminal guarda as pastas', () => {
+    const s = setup();
+    const info = s.manager.create({ cwd, addDirs: [a, `${b}${sep}`] });
+    expect(s.spawned).toEqual([{ args: ['--add-dir', a, '--add-dir', b], cwd }]);
+    expect(info.addDirs).toEqual([a, b]);
+    expect(s.manager.list()[0].addDirs).toEqual([a, b]);
+  });
+
+  it('até 8 pastas', () => {
+    const s = setup();
+    s.manager.create({ cwd, addDirs: dirs.slice(0, 8) });
+    expect(s.spawned[0].args.filter((x) => x === '--add-dir')).toHaveLength(8);
+  });
+
+  it.each([
+    ['não é lista', a],
+    ['item que não é texto', [42]],
+    ['caminho relativo', ['relativa/pasta']],
+    ['pasta que não existe', [join(base, 'nao-existe')]],
+    ['arquivo, não pasta', [file]],
+    ['a própria pasta do projeto', [cwd]],
+    ['repetida', [a, b, a]],
+    ['mais de 8', dirs],
+  ])('recusa com 400 (%s) e não abre nada', (_what, addDirs) => {
+    const s = setup();
+    let err: unknown;
+    try {
+      s.manager.create({ cwd, addDirs });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(PtyError);
+    expect((err as PtyError).status).toBe(400);
+    expect((err as PtyError).message.length).toBeGreaterThan(0);
+    expect(s.spawned).toHaveLength(0);
+  });
+
+  it.runIf(process.platform === 'win32')('no Windows, a mesma pasta com outra caixa ou barra conta como repetida (ou como o projeto)', () => {
+    const s = setup();
+    expect(() => s.manager.create({ cwd, addDirs: [a, a.toUpperCase()] })).toThrow(PtyError);
+    expect(() => s.manager.create({ cwd, addDirs: [cwd.toUpperCase().replace(/\\/g, '/')] })).toThrow(PtyError);
+    expect(s.spawned).toHaveLength(0);
+  });
+
+  it('o agente aberto assim tem as pastas (e a sessão dele vai para o arquivo); o fim do terminal apaga a entrada', () => {
+    const store = new AddDirsStore(null);
+    const s = setup({ addDirs: store });
+    const info = s.manager.create({ cwd, addDirs: [a, b] });
+    expect(s.manager.addDirsOf(info.agentId, SESSION)).toEqual([a, b]);
+    expect(store.get(SESSION)).toEqual([a, b]);
+    // Outro agente, sem terminal daqui: só o que o arquivo diz.
+    expect(s.manager.addDirsOf('acc:1', '1f8fad5b-d9cb-469f-a165-70867728950e')).toBeUndefined();
+    s.manager.close(info.id);
+    expect(store.get(SESSION)).toBeUndefined();
+    expect(s.manager.addDirsOf(info.agentId, SESSION)).toBeUndefined();
+  });
+
+  it('terminal sem pastas extras: o agente vai sem addDirs', () => {
+    const store = new AddDirsStore(null);
+    const s = setup({ addDirs: store });
+    const info = s.manager.create({ cwd });
+    expect(s.manager.addDirsOf(info.agentId, SESSION)).toBeUndefined();
+    expect(store.size()).toBe(0);
+  });
+
+  it('assumir uma sessão aberta com pastas extras: reabre com as mesmas, antes do --resume', async () => {
+    const store = new AddDirsStore(null);
+    store.remember(SESSION, [a, b]);
+    const s = setup({ addDirs: store, agent: { cwd } });
+    const info = await s.manager.takeover(`acc:${PID}`);
+    expect(s.spawned).toEqual([{ args: ['--add-dir', a, '--add-dir', b, '--resume', SESSION], cwd }]);
+    expect(info).toMatchObject({ resumed: SESSION, addDirs: [a, b] });
+    expect(s.manager.addDirsOf(info.agentId, SESSION)).toEqual([a, b]);
+  });
+
+  it('assumir: pasta extra que sumiu (ou que virou a do projeto) fica de fora, sem impedir a retomada', async () => {
+    const store = new AddDirsStore(null);
+    store.remember(SESSION, [join(base, 'sumiu'), cwd, a]);
+    const s = setup({ addDirs: store, agent: { cwd } });
+    await s.manager.takeover(`acc:${PID}`);
+    expect(s.spawned[0].args).toEqual(['--add-dir', a, '--resume', SESSION]);
+  });
+
+  it('assumir uma sessão sem pastas extras: só o --resume', async () => {
+    const s = setup({ addDirs: new AddDirsStore(null), agent: { cwd } });
+    await s.manager.takeover(`acc:${PID}`);
+    expect(s.spawned[0].args).toEqual(['--resume', SESSION]);
+  });
+});
+
 describe('ptyRequestProblem', () => {
-  const req = (h: Record<string, string>, addr = '127.0.0.1') => ({ socket: { remoteAddress: addr }, headers: h }) as unknown as IncomingMessage;
+  const req =(h: Record<string, string>, addr = '127.0.0.1') => ({ socket: { remoteAddress: addr }, headers: h }) as unknown as IncomingMessage;
 
   it('aceita o próprio computador, mesma origem', () => {
     expect(ptyRequestProblem(req({ host: 'localhost:4747', origin: 'http://localhost:4747', 'sec-fetch-site': 'same-origin' }))).toBeNull();

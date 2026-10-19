@@ -21,6 +21,7 @@ import { readProcInfo, sameProcess, type ProcInfo, type RegisteredProc } from '.
 import { killWithConsoleReset } from './winkill';
 import { tr } from '../../shared/i18n';
 import { isExecutableFile } from '../claude-bin';
+import { AddDirsStore, dirKey, MAX_ADD_DIRS } from './add-dirs';
 
 export { claudeBinFrom, findExecutable, isExecutableFile } from '../claude-bin';
 
@@ -91,6 +92,8 @@ export interface PtyManagerOptions {
   createScreen?: ScreenFactory;
   isAlive?: (pid: number) => boolean;
   sleep?: (ms: number) => Promise<void>;
+  /** Sessão -> pastas extras (`--add-dir`), para o "assumir" reabrir com as mesmas (padrão: só em memória). */
+  addDirs?: AddDirsStore;
 }
 
 /** Saída bruta guardada por terminal quando não há o @xterm/headless (ver rawScreen). */
@@ -155,6 +158,8 @@ interface Pty {
   clients: Set<ServerResponse>;
   /** Conectando: guardam a saída nova numa fila até a tela guardada ficar pronta. */
   pending: Map<ServerResponse, string[]>;
+  /** Sessões do Claude Code vistas neste terminal (com pastas extras): saem do AddDirsStore quando ele encerra. */
+  sessions: Set<string>;
 }
 
 /** Sessão aberta noutro terminal, conferida: o PID e o que o sistema diz dele. */
@@ -169,6 +174,18 @@ interface SpawnPlan {
   account: PtyAccount;
   cols: number;
   rows: number;
+  /** Pastas extras (`claude --add-dir`), já validadas; vazia = nenhuma. */
+  addDirs: string[];
+}
+
+/** Pedido de uma sessão nova (POST /api/pty), ainda sem validar. */
+export interface PtyCreateRequest {
+  cwd: unknown;
+  account?: unknown;
+  cols?: unknown;
+  rows?: unknown;
+  /** Pastas extras: caminhos absolutos de pastas existentes, diferentes de `cwd`, sem repetição, até MAX_ADD_DIRS. */
+  addDirs?: unknown;
 }
 
 export class PtyError extends Error {
@@ -193,8 +210,10 @@ export class PtyManager {
   private readonly createScreen: ScreenFactory;
   private readonly isAlive: (pid: number) => boolean;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly store: AddDirsStore;
 
   constructor(private readonly opts: PtyManagerOptions) {
+    this.store = opts.addDirs ?? new AddDirsStore(null);
     this.now = opts.now ?? Date.now;
     this.procInfo = opts.procInfo ?? ((pid) => readProcInfo(pid));
     this.killPid =
@@ -221,9 +240,31 @@ export class PtyManager {
     return [...this.ptys.values()].map((t) => ({ ...t.info }));
   }
 
-  /** Abre uma sessão nova do Claude Code na pasta (`cwd` absoluto), na conta pedida (ou na padrão). */
-  create(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown }): PtyInfo {
+  /**
+   * Abre uma sessão nova do Claude Code na pasta (`cwd` absoluto), na conta pedida (ou na padrão), com as pastas
+   * extras pedidas (`addDirs`: `claude --add-dir <pasta>` para cada uma).
+   */
+  create(p: PtyCreateRequest): PtyInfo {
     return this.spawn(this.plan(p, this.takeovers.size));
+  }
+
+  /**
+   * Pastas extras do agente principal `agentId` (sessão `sessionId`), para o snapshot (AgentInfo.addDirs): as do
+   * terminal daqui que o abriu (e a sessão passa a constar no AddDirsStore) ou, sem ele, as que o arquivo guarda
+   * para a sessão. Undefined = nenhuma.
+   */
+  addDirsOf(agentId: string, sessionId: string): string[] | undefined {
+    const own = this.byAgent(agentId);
+    if (own) {
+      const dirs = own.info.addDirs;
+      if (!dirs?.length) return undefined;
+      if (SESSION_ID.test(sessionId)) {
+        own.sessions.add(sessionId);
+        this.store.remember(sessionId, dirs);
+      }
+      return [...dirs];
+    }
+    return this.store.get(sessionId);
   }
 
   /**
@@ -268,8 +309,10 @@ export class PtyManager {
     const agent = this.mainAgent(agentId);
     if (!SESSION_ID.test(agent.sessionId)) throw new PtyError(409, tr('sessão sem id válido para retomar'));
     if (!agent.cwd) throw new PtyError(409, tr('não sei a pasta desta sessão'));
-    // As outras tomadas em andamento já têm uma vaga prometida.
-    const plan = this.plan({ cwd: agent.cwd, account: agent.account, cols: size.cols, rows: size.rows }, this.takeovers.size - 1);
+    // A sessão foi aberta com pastas extras: reabre com as mesmas (a que sumiu, ou que virou a do projeto, fica de fora
+    // em vez de impedir a retomada). As outras tomadas em andamento já têm uma vaga prometida.
+    const addDirs = usableAddDirs(this.store.get(agent.sessionId) ?? [], agent.cwd);
+    const plan = this.plan({ cwd: agent.cwd, account: agent.account, cols: size.cols, rows: size.rows, addDirs }, this.takeovers.size - 1);
     const ext = await this.external(agentId);
     try {
       await this.killPid(ext.pid, ext.proc);
@@ -370,7 +413,7 @@ export class PtyManager {
   }
 
   /** Valida o pedido de uma sessão nova (`reserved`: vagas já prometidas a tomadas em andamento). */
-  private plan(p: { cwd: unknown; account?: unknown; cols?: unknown; rows?: unknown }, reserved = 0): SpawnPlan {
+  private plan(p: PtyCreateRequest, reserved = 0): SpawnPlan {
     if (!this.opts.spawn) throw new PtyError(503, tr('terminal desligado: {0}', [this.opts.disabledReason ?? tr('indisponível')]));
     // Antes de tudo (o "assumir" encerra a sessão de lá depois daqui): um claude que não roda abriria um terminal que
     // sai na hora.
@@ -384,18 +427,19 @@ export class PtyManager {
       // tratado abaixo
     }
     if (!isDir) throw new PtyError(400, tr('pasta não encontrada: {0}', [cwd]));
+    const addDirs = checkAddDirs(p.addDirs, cwd);
     const accounts = this.opts.accounts();
     const account = typeof p.account === 'string' ? accounts.find((a) => a.id === p.account) : (accounts.find((a) => a.isDefault) ?? accounts[0]);
     if (!account) throw new PtyError(400, tr('conta desconhecida'));
     const running = [...this.ptys.values()].filter((t) => t.info.exitedAt === undefined).length;
     if (running + Math.max(0, reserved) >= MAX_PTYS) throw new PtyError(429, tr('limite de {0} terminais abertos', [MAX_PTYS]));
-    return { cwd, account, cols: clampInt(p.cols, 20, 400, 100), rows: clampInt(p.rows, 5, 200, 30) };
+    return { cwd, account, cols: clampInt(p.cols, 20, 400, 100), rows: clampInt(p.rows, 5, 200, 30), addDirs };
   }
 
   private spawn(plan: SpawnPlan, p: { resume?: string; from?: string } = {}): PtyInfo {
     const spawn = this.opts.spawn;
     if (!spawn) throw new PtyError(503, tr('terminal desligado: {0}', [this.opts.disabledReason ?? tr('indisponível')]));
-    const { cwd, account, cols, rows } = plan;
+    const { cwd, account, cols, rows, addDirs } = plan;
     const env: NodeJS.ProcessEnv = { ...(this.opts.env ?? process.env), TERM: 'xterm-256color', COLORTERM: 'truecolor' };
     for (const k of INHERITED_SESSION_VARS) delete env[k];
     if (account.isDefault) delete env.CLAUDE_CONFIG_DIR;
@@ -403,7 +447,8 @@ export class PtyManager {
 
     let proc: PtyProcess;
     try {
-      const args = p.resume ? ['--resume', p.resume] : [];
+      // As pastas extras antes do --resume (cada uma no seu --add-dir).
+      const args = [...addDirs.flatMap((d) => ['--add-dir', d]), ...(p.resume ? ['--resume', p.resume] : [])];
       proc = spawn(this.opts.claudeBin, args, { cwd, cols, rows, env });
     } catch (err) {
       throw new PtyError(500, tr('não consegui abrir o Claude Code: {0}', [errMsg(err)]));
@@ -412,8 +457,16 @@ export class PtyManager {
     const info: PtyInfo = { id, pid: proc.pid, cwd, account: account.id, agentId: `${account.id}:${proc.pid}`, startedAt: this.now() };
     if (p.resume) info.resumed = p.resume;
     if (p.from) info.fromAgent = p.from;
-    const pty: Pty = { info, proc, screen: this.createScreen(cols, rows), clients: new Set(), pending: new Map() };
+    if (addDirs.length) info.addDirs = [...addDirs];
+    const pty: Pty = { info, proc, screen: this.createScreen(cols, rows), clients: new Set(), pending: new Map(), sessions: new Set() };
     this.ptys.set(id, pty);
+    // Retomada com pastas extras: a sessão já é conhecida (e continua no arquivo enquanto este terminal viver).
+    if (p.resume) {
+      if (addDirs.length) {
+        pty.sessions.add(p.resume);
+        this.store.remember(p.resume, addDirs);
+      } else this.store.forget(p.resume);
+    }
     proc.onData((data) => {
       pty.screen.write(data);
       for (const queue of pty.pending.values()) queue.push(data);
@@ -422,6 +475,9 @@ export class PtyManager {
     proc.onExit(({ exitCode }) => {
       pty.info.exitedAt = this.now();
       pty.info.exitCode = exitCode;
+      // A sessão acabou: as pastas extras dela saem do arquivo.
+      for (const s of pty.sessions) this.store.forget(s);
+      pty.sessions.clear();
       this.broadcast(pty, 'exit', { code: exitCode });
       this.opts.onChange();
     });
@@ -519,6 +575,55 @@ export class PtyManager {
     const f = frame(event, data);
     for (const c of pty.clients) c.write(f);
   }
+}
+
+function isDirectory(p: string): boolean {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Valida as pastas extras de uma sessão nova (POST /api/pty `addDirs`): ausente (ou null) = nenhuma; senão uma lista
+ * de até MAX_ADD_DIRS caminhos absolutos de pastas existentes, nenhuma igual à do projeto nem repetida (no Windows,
+ * sem caixa e com a barra para qualquer lado). Inválido = PtyError 400 com o motivo. Devolve os caminhos resolvidos.
+ */
+export function checkAddDirs(raw: unknown, cwd: string): string[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new PtyError(400, tr('addDirs precisa ser uma lista de pastas'));
+  if (raw.length > MAX_ADD_DIRS) throw new PtyError(400, tr('no máximo {0} pastas extras (addDirs)', [MAX_ADD_DIRS]));
+  const cwdKey = dirKey(cwd);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string' || !isAbsolute(item)) throw new PtyError(400, tr('cada pasta extra (addDirs) precisa ser um caminho absoluto'));
+    const dir = resolve(item);
+    if (!isDirectory(dir)) throw new PtyError(400, tr('pasta extra não encontrada: {0}', [dir]));
+    const key = dirKey(dir);
+    if (key === cwdKey) throw new PtyError(400, tr('a pasta extra é a própria pasta do projeto: {0}', [dir]));
+    if (seen.has(key)) throw new PtyError(400, tr('pasta extra repetida: {0}', [dir]));
+    seen.add(key);
+    out.push(dir);
+  }
+  return out;
+}
+
+/** As pastas extras guardadas de uma sessão que ainda servem para retomá-la (existem, sem repetir nem ser o `cwd`). */
+function usableAddDirs(dirs: readonly string[], cwd: string): string[] {
+  const seen = new Set([dirKey(resolve(cwd))]);
+  const out: string[] = [];
+  for (const d of dirs) {
+    if (!isAbsolute(d)) continue;
+    const dir = resolve(d);
+    const key = dirKey(dir);
+    if (seen.has(key) || !isDirectory(dir)) continue;
+    seen.add(key);
+    out.push(dir);
+    if (out.length === MAX_ADD_DIRS) break;
+  }
+  return out;
 }
 
 function clampInt(v: unknown, min: number, max: number, fallback: number): number {

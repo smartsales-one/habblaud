@@ -1840,7 +1840,17 @@ export const ES: Readonly<Record<string, string>> = {
   "Pergunta: {0}": "Pregunta: {0}",
   "Pede permissão: {0}": "Pide permiso: {0}",
 
+  // server/pty/add-dirs.ts
+  "{0} ilegível ({1}): ignorado.": "{0} ilegible ({1}): ignorado.",
+  "Não foi possível gravar {0} ({1}); as pastas extras das sessões valem só nesta execução.": "No se pudo guardar {0} ({1}); las carpetas extra de las sesiones solo valen en esta ejecución.",
+
   // server/pty/manager.ts
+  "addDirs precisa ser uma lista de pastas": "addDirs debe ser una lista de carpetas",
+  "no máximo {0} pastas extras (addDirs)": "como máximo {0} carpetas extra (addDirs)",
+  "cada pasta extra (addDirs) precisa ser um caminho absoluto": "cada carpeta extra (addDirs) debe ser una ruta absoluta",
+  "pasta extra não encontrada: {0}": "carpeta extra no encontrada: {0}",
+  "a pasta extra é a própria pasta do projeto: {0}": "la carpeta extra es la propia carpeta del proyecto: {0}",
+  "pasta extra repetida: {0}": "carpeta extra repetida: {0}",
   "indisponível": "no disponible",
   "não consegui encerrar a sessão: {0}": "no pude cerrar la sesión: {0}",
   "Agente {0} encerrado pelo escritório.": "Agente {0} cerrado desde la oficina.",

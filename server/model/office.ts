@@ -80,6 +80,8 @@ export interface OfficeDeps {
   updates?: () => UpdateStatus;
   /** Terminais interativos (PtyManager): estado do recurso e os abertos. */
   ptys?: () => { status: PtyStatus; list: PtyInfo[] };
+  /** Pastas extras (`claude --add-dir`) de um principal (PtyManager.addDirsOf): viram AgentInfo.addDirs. */
+  addDirs?: (agentId: string, sessionId: string) => readonly string[] | undefined;
   /** Habblaud World (WorldService.meta; ver OfficeSnapshot.meta.world). */
   world?: () => WorldMeta;
   /** Nome do escritório (ServerConfig.officeName; ver OfficeSnapshot.meta.officeName). Ausente = "Habblaud". */
@@ -1116,6 +1118,15 @@ export class Office {
     // Mensagens pelo escritório: principais presentes cuja sessão está com o plugin conectado. No demo quem decide é
     // o simulador; com o recurso desligado, ninguém recebe.
     for (const a of real) if (reach?.has(a.id) && a.kind === 'main' && a.status !== 'offline' && a.status !== 'done') a.canMessage = true;
+    // Pastas extras da sessão aberta (ou retomada) pelo terminal daqui com `addDirs`.
+    const addDirs = this.deps.addDirs;
+    if (addDirs) {
+      for (const a of real) {
+        if (a.kind !== 'main') continue;
+        const dirs = addDirs(a.id, a.sessionId);
+        if (dirs?.length) a.addDirs = [...dirs];
+      }
+    }
     const demoAgents = (this.demoSnap?.agents ?? []).map((a) => {
       if (reach || !a.canMessage) return a;
       const { canMessage: _off, ...rest } = a;

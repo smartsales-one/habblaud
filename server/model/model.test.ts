@@ -511,6 +511,31 @@ describe('Office', () => {
     expect(on.commit().snapshot.agents.filter((a) => a.canMessage).every((a) => a.kind === 'main' && a.id.startsWith('demo:'))).toBe(true);
     expect(on.commit().snapshot.agents.some((a) => a.canMessage)).toBe(true);
   });
+
+  it('addDirs: o principal aberto com pastas extras pelo terminal leva as pastas no snapshot; os outros, não', () => {
+    const deps = { names: new NameStore(null), version: 't', startedAt: 0, accounts: () => [], sources: () => [], accountName: () => undefined };
+    const asked: string[] = [];
+    const office = new Office({
+      ...deps,
+      addDirs: (id, sessionId) => {
+        asked.push(`${id}/${sessionId}`);
+        return id === 'acc:1' ? ['/p/discador', '/p/portal'] : undefined;
+      },
+    });
+    office.addMain({ id: 'acc:1', account: 'acc', sessionId: 's1', cwd: '/p/smartcrm', role: 'Agente principal', startedAt: 0, status: 'idle' });
+    office.addMain({ id: 'acc:2', account: 'acc', sessionId: 's2', cwd: '/p/smartcrm', role: 'Agente principal', startedAt: 0, status: 'working' });
+    office.addSub({ id: 's1:sub', parentId: 'acc:1', sessionId: 's1', role: 'Explore', background: false, startedAt: 0 });
+    const snap = office.commit().snapshot;
+    expect(snap.agents.find((a) => a.id === 'acc:1')!.addDirs).toEqual(['/p/discador', '/p/portal']);
+    expect(snap.agents.find((a) => a.id === 'acc:2')!.addDirs).toBeUndefined();
+    expect(snap.agents.find((a) => a.id === 's1:sub')!.addDirs).toBeUndefined();
+    // Só principais são consultados; sem a dependência, ninguém leva addDirs.
+    expect([...new Set(asked)].sort()).toEqual(['acc:1/s1', 'acc:2/s2']);
+    expect(office.get('acc:1')!.addDirs).toBeUndefined();
+    const plain = new Office(deps);
+    plain.addMain({ id: 'acc:1', account: 'acc', sessionId: 's1', cwd: '/p/smartcrm', role: 'Agente principal', startedAt: 0, status: 'idle' });
+    expect(plain.commit().snapshot.agents.some((a) => a.addDirs)).toBe(false);
+  });
 });
 
 describe('Office: personagem do projeto', () => {

@@ -25,6 +25,7 @@ import { RoomAliases } from './model/room-aliases';
 import { createPtyRoutes } from './http/pty';
 import { claudeBinFrom, isExecutableFile, loadPty, PtyManager, type ScreenFactory, type SpawnPty } from './pty/manager';
 import { loadHeadlessScreen } from './pty/screen';
+import { ADD_DIRS_FILE, AddDirsStore } from './pty/add-dirs';
 import { openMainAgent, SessionHistory } from './sources/history';
 import { HistorySet, SourceSet } from './sources/source';
 import { createPermissionRoutes } from './permissions/http';
@@ -129,6 +130,7 @@ const office = new Office({
   permissions: () => late.permissions?.snapshot() ?? new Map(),
   messages: config.messages ? () => late.messages?.reachable() ?? new Set() : undefined,
   ptys: () => (late.ptys ? { status: late.ptys.status(), list: late.ptys.list() } : { status: { enabled: false, reason: late.ptyOff ?? tr('desligado') }, list: [] }),
+  addDirs: (id, sessionId) => late.ptys?.addDirsOf(id, sessionId),
   updates: () => updates.status(),
   world: () => world?.meta() ?? { enabled: false, configured: false, state: 'off' },
   officeName: config.officeName,
@@ -304,6 +306,10 @@ else {
     if (screen.reason) log.warn(tr('Terminal interativo sem a tela completa ({0}): ao reconectar, modos como a colagem entre colchetes podem se perder.', [screen.reason]));
   }
 }
+// Pastas extras (`--add-dir`) das sessões abertas pelo terminal: <dataDir>/add-dirs.json (modo 600), para o "assumir"
+// reabrir com as mesmas depois de um reinício.
+const addDirsStore = spawnPty ? new AddDirsStore(join(config.dataDir, ADD_DIRS_FILE)) : undefined;
+addDirsStore?.load();
 const ptys = spawnPty
   ? new PtyManager({
       spawn: spawnPty,
@@ -315,6 +321,7 @@ const ptys = spawnPty
       },
       onChange: () => office.markDirty(),
       createScreen: ptyScreen,
+      addDirs: addDirsStore,
     })
   : undefined;
 late.ptys = ptys;

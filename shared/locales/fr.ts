@@ -2230,7 +2230,17 @@ export const FR: Readonly<Record<string, string>> = {
   // server/messages/registry.ts
   "a conversa do agente mudou (/clear ou /resume) antes da entrega": "la conversation de l'agent a changé (/clear ou /resume) avant la remise",
 
+  // server/pty/add-dirs.ts
+  "{0} ilegível ({1}): ignorado.": "{0} illisible ({1}) : ignoré.",
+  "Não foi possível gravar {0} ({1}); as pastas extras das sessões valem só nesta execução.": "Impossible d'enregistrer {0} ({1}) ; les dossiers supplémentaires des sessions ne valent que pour cette exécution.",
+
   // server/pty/manager.ts
+  "addDirs precisa ser uma lista de pastas": "addDirs doit être une liste de dossiers",
+  "no máximo {0} pastas extras (addDirs)": "au maximum {0} dossiers supplémentaires (addDirs)",
+  "cada pasta extra (addDirs) precisa ser um caminho absoluto": "chaque dossier supplémentaire (addDirs) doit être un chemin absolu",
+  "pasta extra não encontrada: {0}": "dossier supplémentaire introuvable : {0}",
+  "a pasta extra é a própria pasta do projeto: {0}": "le dossier supplémentaire est le dossier du projet lui-même : {0}",
+  "pasta extra repetida: {0}": "dossier supplémentaire en double : {0}",
   "indisponível": "indisponible",
   "não consegui encerrar a sessão: {0}": "impossible de fermer la session : {0}",
   "Agente {0} encerrado pelo escritório.": "Agent {0} fermé depuis le bureau.",

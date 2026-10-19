@@ -252,6 +252,21 @@ describe('BuildingUplink: conexão e remessas', () => {
     for (const leak of ['external', 'gerencia', 'Claudio']) expect(JSON.stringify(uplink), leak).not.toContain(leak);
   });
 
+  it('as pastas extras de uma sessão (addDirs, `claude --add-dir`) não vão no fio nem na última remessa', async () => {
+    const h = await start({ start: false });
+    h.agents = h.agents.map((a) => (a.id === '.claude:101' ? { ...a, addDirs: ['/Users/ana/discador-extra', 'C:\\clientes\\portal-extra'] } : a));
+    h.uplink.start();
+    await waitFor(() => h.world.ws.uplinks.length === 1, 'primeira remessa');
+    await waitFor(() => !!h.uplink.lastUplink()?.ack, 'ack');
+    const wire = JSON.stringify(h.world.ws.connections[0].messages);
+    const last = readFileSync(h.lastFile, 'utf8');
+    for (const leak of ['addDirs', 'discador-extra', 'portal-extra', 'clientes']) {
+      expect(wire, leak).not.toContain(leak);
+      expect(last, leak).not.toContain(leak);
+    }
+    expect(agentsOf(h.world.ws.uplinks[0].uplink)).toHaveLength(3);
+  });
+
   it('última remessa em disco: modo 600, sem token, relida só na mesma sessão', async () => {
     const h = await start();
     await waitFor(() => !!h.uplink.lastUplink()?.ack, 'ack');
